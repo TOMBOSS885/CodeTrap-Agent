@@ -1,0 +1,8 @@
+.git
+.pytest_cache
+__pycache__
+*.pyc
+data/uploads/*
+data/reports/*
+data/*.sqlite3
+

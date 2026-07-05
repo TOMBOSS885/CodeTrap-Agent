@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CodeTrap-Agent</title>
+  <style>
+    :root { color-scheme: light; --ink:#182026; --muted:#5b6872; --line:#d7dde2; --accent:#0f766e; --danger:#b42318; --ok:#047857; --bg:#f7f8fa; --panel:#fff; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; color:var(--ink); background:var(--bg); }
+    header { padding:24px 32px 16px; background:#fff; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 6px; font-size:28px; letter-spacing:0; }
+    h2 { margin:0 0 12px; font-size:18px; }
+    h3 { margin:14px 0 8px; font-size:15px; }
+    p { margin:0; color:var(--muted); line-height:1.45; }
+    main { max-width:1240px; margin:0 auto; padding:20px; display:grid; grid-template-columns:320px 1fr; gap:18px; }
+    section, aside { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; }
+    label { display:block; font-weight:650; margin:12px 0 6px; }
+    select, input, button { width:100%; font:inherit; border:1px solid var(--line); border-radius:6px; padding:10px; background:#fff; }
+    button { background:var(--accent); color:#fff; border-color:var(--accent); cursor:pointer; font-weight:700; margin-top:10px; }
+    button.secondary { background:#fff; color:var(--accent); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    pre { background:#101820; color:#e8f3f1; padding:12px; border-radius:8px; overflow:auto; min-height:160px; margin:0; }
+    code { background:#eef2f4; padding:2px 5px; border-radius:4px; }
+    .families { display:grid; gap:10px; margin-top:12px; }
+    .family { border:1px solid var(--line); border-radius:8px; padding:12px; cursor:pointer; }
+    .family.active { border-color:var(--accent); background:#edf7f5; }
+    .layout { display:grid; grid-template-columns:1fr 360px; gap:18px; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .panel { border:1px solid var(--line); border-radius:8px; padding:14px; margin-top:14px; }
+    .mutant { border-top:1px solid var(--line); padding:10px 0; }
+    .mutant:first-child { border-top:0; }
+    .stats { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-top:12px; }
+    .stat { border:1px solid var(--line); border-radius:8px; padding:12px; }
+    .stat strong { display:block; font-size:22px; }
+    .passed { color:var(--ok); }
+    .failed { color:var(--danger); }
+    .actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    @media (max-width: 980px) { main, .layout { grid-template-columns:1fr; } }
+    @media (max-width: 620px) { main { padding:12px; } header { padding:20px; } .row, .stats, .actions { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CodeTrap-Agent</h1>
+    <p>Adversarial programming problem generation, judging, and weakness reporting for coding models.</p>
+  </header>
+  <main>
+    <aside>
+      <h2>Problem families</h2>
+      <div id="families" class="families"></div>
+    </aside>
+    <div class="layout">
+      <section>
+        <h2 id="family-title">Select a family</h2>
+        <p id="family-desc"></p>
+        <div class="panel">
+          <h3>Formats</h3>
+          <p><strong>Input:</strong> <code id="input-format"></code></p>
+          <p><strong>Output:</strong> <code id="output-format"></code></p>
+        </div>
+        <div class="row">
+          <div>
+            <label for="level">Case level</label>
+            <select id="level"><option>basic</option><option>edge</option><option>adversarial</option></select>
+          </div>
+          <div>
+            <label for="count">Case count</label>
+            <input id="count" type="number" min="1" max="50" value="5">
+          </div>
+        </div>
+        <button id="generate">Generate cases</button>
+        <label for="solution">Upload candidate Python solution</label>
+        <input id="solution" type="file" accept=".py">
+        <button id="judge">Judge solution</button>
+        <div class="actions">
+          <button id="view-report" class="secondary" disabled>View HTML report</button>
+          <button id="download" class="secondary" disabled>Download Markdown</button>
+        </div>
+        <div id="stats" class="stats"></div>
+        <div class="panel">
+          <h3>Output</h3>
+          <pre id="output">Loading families...</pre>
+        </div>
+      </section>
+      <section>
+        <h2>Common wrong solutions</h2>
+        <div id="mutants"><p>Select a family to inspect its mutants.</p></div>
+      </section>
+    </div>
+  </main>
+  <script>
+    let selected = null;
+    let generatedCases = [];
+    let reportId = null;
+    const out = document.getElementById("output");
+    const show = (value) => out.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+    function renderStats(result) {
+      const stats = document.getElementById("stats");
+      if (!result) { stats.innerHTML = ""; return; }
+      const rate = result.total_cases ? (result.passed_cases / result.total_cases * 100).toFixed(1) : "0.0";
+      stats.innerHTML = `
+        <div class="stat"><strong>${result.total_cases}</strong><span>Total</span></div>
+        <div class="stat"><strong class="passed">${result.passed_cases}</strong><span>Passed</span></div>
+        <div class="stat"><strong class="${result.failed_cases.length ? "failed" : "passed"}">${rate}%</strong><span>Pass rate</span></div>
+      `;
+    }
+    async function selectFamily(familyId) {
+      selected = familyId;
+      document.querySelectorAll(".family").forEach(x => x.classList.toggle("active", x.dataset.id === familyId));
+      const detail = await fetch(`/api/families/${familyId}`).then(r => r.json());
+      document.getElementById("family-title").textContent = detail.title;
+      document.getElementById("family-desc").textContent = detail.description;
+      document.getElementById("input-format").textContent = detail.input_format;
+      document.getElementById("output-format").textContent = detail.output_format;
+      document.getElementById("mutants").innerHTML = detail.mutants.map(m => `
+        <div class="mutant">
+          <strong>${m.title}</strong>
+          <p>${m.description}</p>
+          <pre>${m.code}</pre>
+        </div>
+      `).join("");
+      show(detail);
+    }
+    async function loadFamilies() {
+      const families = await fetch("/api/families").then(r => r.json());
+      const box = document.getElementById("families");
+      box.innerHTML = "";
+      families.forEach((family) => {
+        const div = document.createElement("div");
+        div.className = "family";
+        div.dataset.id = family.family_id;
+        div.innerHTML = `<strong>${family.title}</strong><br><small>${family.family_id} · ${family.tags.join(", ")}</small>`;
+        div.onclick = () => selectFamily(family.family_id);
+        box.appendChild(div);
+      });
+      if (families.length) await selectFamily(families[0].family_id);
+    }
+    document.getElementById("generate").onclick = async () => {
+      const body = { level: level.value, count: Number(count.value) };
+      const res = await fetch(`/api/families/${selected}/cases`, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) }).then(r => r.json());
+      generatedCases = res.cases || [];
+      show(res);
+    };
+    document.getElementById("judge").onclick = async () => {
+      const file = document.getElementById("solution").files[0];
+      if (!file) { show("Choose a Python file first."); return; }
+      const form = new FormData();
+      form.append("file", file);
+      form.append("level", level.value);
+      form.append("count", count.value);
+      if (generatedCases.length) form.append("cases_json", JSON.stringify(generatedCases));
+      const res = await fetch(`/api/judge/${selected}`, { method:"POST", body: form }).then(r => r.json());
+      reportId = res.report_id;
+      document.getElementById("download").disabled = !reportId;
+      document.getElementById("view-report").disabled = !reportId;
+      renderStats(res.result);
+      show(res);
+    };
+    document.getElementById("download").onclick = () => {
+      if (reportId) location.href = `/api/reports/${reportId}/download`;
+    };
+    document.getElementById("view-report").onclick = () => {
+      if (reportId) window.open(`/api/reports/${reportId}`, "_blank");
+    };
+    loadFamilies().catch(err => show(String(err)));
+  </script>
+</body>
+</html>
