@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -13,6 +14,14 @@ class MutantSolution:
     title: str
     description: str
     code: str
+
+
+@dataclass(frozen=True)
+class ProblemVariant:
+    id: str
+    title: str
+    statement: str
+    tags: list[str]
 
 
 class ProblemFamily(Protocol):
@@ -33,13 +42,17 @@ class ProblemFamily(Protocol):
     def generate_mutants(self) -> list[MutantSolution]:
         ...
 
-    def statement(self) -> str:
-        return self.description
-
     def reference_solution_code(self) -> str:
         ...
 
-    def generate_problem_bundle(self, level: str, count: int, sources: list[SearchSource], search_query: str, search_status: str) -> ProblemBundle:
+    def generate_problem_bundle(
+        self,
+        level: str,
+        count: int,
+        sources: list[SearchSource],
+        search_query: str,
+        search_status: str,
+    ) -> ProblemBundle:
         ...
 
 
@@ -58,48 +71,61 @@ class BaseProblemFamily:
             case.expected_output = self.reference_solve(case.input_data)
         return selected
 
-    def statement(self) -> str:
-        traps = "\n".join(f"- {item}" for item in self.trap_notes())
-        return (
-            f"# {self.title}\n\n"
-            f"{self.description}\n\n"
-            f"## 输入格式\n\n`{self.input_format}`\n\n"
-            f"## 输出格式\n\n`{self.output_format}`\n\n"
-            f"## 容易让 AI 出错的陷阱\n\n{traps}"
-        )
-
     def trap_notes(self) -> list[str]:
         return [
-            "边界条件和非法输入需要明确处理。",
-            "测试数据包含基础、边界和对抗样例。",
+            "需要明确处理边界条件和非法输入。",
+            "测试数据覆盖基础、边界和对抗样例。",
             "期望输出由 reference_solve 自动计算，避免手写答案不一致。",
         ]
 
-    def reference_solution_code(self) -> str:
-        class_name = self.__class__.__name__
-        module_name = self.__class__.__module__
+    def problem_variants(self) -> list[ProblemVariant]:
+        return [
+            ProblemVariant(
+                id=f"{self.family_id}-default",
+                title=self.title,
+                statement=self.description,
+                tags=self.tags,
+            )
+        ]
+
+    def build_statement(self, variant: ProblemVariant) -> str:
+        traps = "\n".join(f"- {item}" for item in self.trap_notes())
         return (
-            "from "
-            + module_name
-            + " import "
-            + class_name
-            + "\n\n"
-            + "def solve(input_data):\n"
-            + f"    return {class_name}().reference_solve(input_data)\n"
+            f"# {variant.title}\n\n"
+            f"{variant.statement}\n\n"
+            f"## 输入格式\n\n`{self.input_format}`\n\n"
+            f"## 输出格式\n\n`{self.output_format}`\n\n"
+            f"## 容易让 AI 出错的点\n\n{traps}"
         )
 
-    def generate_problem_bundle(self, level: str, count: int, sources: list[SearchSource], search_query: str, search_status: str) -> ProblemBundle:
+    def reference_solution_code(self) -> str:
+        raise NotImplementedError("problem family must provide standalone reference_solution_code")
+
+    def generate_problem_bundle(
+        self,
+        level: str,
+        count: int,
+        sources: list[SearchSource],
+        search_query: str,
+        search_status: str,
+        variant: ProblemVariant | None = None,
+        generation_status: str = "local_variant",
+    ) -> ProblemBundle:
+        variants = self.problem_variants()
+        variant = variant or random.choice(variants)
+        cases = self.generate_cases(level, count)
+        full_status = search_status if generation_status == "local_variant" else f"{search_status};{generation_status}"
         return ProblemBundle(
             family_id=self.family_id,
-            title=self.title,
-            statement=self.statement(),
+            title=variant.title,
+            statement=self.build_statement(variant),
             input_format=self.input_format,
             output_format=self.output_format,
             difficulty=self.difficulty,
-            tags=self.tags,
-            cases=self.generate_cases(level, count),
+            tags=sorted(set(self.tags + variant.tags)),
+            cases=cases,
             reference_answer=self.reference_solution_code(),
             sources=sources,
             search_query=search_query,
-            search_status=search_status,
+            search_status=full_status,
         )

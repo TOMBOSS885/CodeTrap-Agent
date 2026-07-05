@@ -4,10 +4,12 @@ import uuid
 
 from fastapi import APIRouter, HTTPException
 
+from app.config import LLM_API_BASE, LLM_API_KEY, LLM_MODEL, LLM_PROVIDER
 from app.database import db
 from app.repositories import list_problem_bundle_summaries, load_problem_bundle, save_problem_bundle
 from app.schemas import GenerateCasesRequest
 from codetrap.core.registry import registry
+from codetrap.llm.client import LLMConfig, LLMProblemGenerator
 from codetrap.search.web_search import search_related_problems
 
 router = APIRouter()
@@ -93,7 +95,12 @@ def generate_problem(family_id: str, request: GenerateCasesRequest):
         sources, search_status = search_related_problems(query)
     else:
         sources, search_status = [], "online_search_disabled"
-    bundle = family.generate_problem_bundle(request.level, request.count, sources, query, search_status)
+    ai_variant = None
+    generation_status = "local_variant"
+    if request.use_ai:
+        generator = LLMProblemGenerator(LLMConfig(provider=LLM_PROVIDER, api_key=LLM_API_KEY, model=LLM_MODEL, api_base=LLM_API_BASE))
+        ai_variant, generation_status = generator.generate_variant(family, sources)
+    bundle = family.generate_problem_bundle(request.level, request.count, sources, query, search_status, variant=ai_variant, generation_status=generation_status)
     run_id = uuid.uuid4().hex
     problem_id = uuid.uuid4().hex
     with db() as conn:

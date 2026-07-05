@@ -81,6 +81,32 @@ CODETRAP_DOCKER_IMAGE=python:3.11-slim
 
 The Docker backend runs each case with `--network none`, a read-only filesystem, memory and CPU limits, and a small writable `/tmp`. Docker must be installed on the host for this mode.
 
+## AI Problem Generation
+
+The system can optionally call an LLM to generate a more natural Chinese problem statement. Test cases, expected outputs, and reference answers are still produced by the local deterministic engine so they remain runnable and consistent.
+
+Set these in `.env`:
+
+```env
+CODETRAP_LLM_PROVIDER=deepseek
+CODETRAP_LLM_API_KEY=your_api_key
+CODETRAP_LLM_MODEL=deepseek-chat
+CODETRAP_LLM_API_BASE=https://api.deepseek.com/v1
+```
+
+Supported providers:
+
+- `openai`
+- `openai_compatible`
+- `deepseek`
+- `qwen`
+- `moonshot`
+- `zhipu`
+- `anthropic`
+- `gemini`
+
+For OpenAI-compatible vendors, set `CODETRAP_LLM_API_BASE` to the vendor's `/v1` compatible endpoint. If no key is configured, `use_ai=true` automatically falls back to local variants.
+
 ## API
 
 - `GET /health`

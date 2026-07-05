@@ -77,6 +77,7 @@
           <label for="query">联网搜索关键词</label>
           <input id="query" placeholder="留空则自动按当前题型搜索易错题素材">
           <label><input id="search-online" type="checkbox" checked style="width:auto;margin-right:6px">启用联网搜索</label>
+          <label><input id="use-ai" type="checkbox" style="width:auto;margin-right:6px">使用 AI 生成更自然的题面</label>
           <button id="generate-problem">生成完整题目</button>
           <p class="hint">生成结果会包含题目原题、多个测试数据、每个用例的期望输出、参考答案和搜索来源。</p>
         </div>
@@ -204,6 +205,7 @@
         level: level.value,
         count: Number(count.value),
         search_online: document.getElementById("search-online").checked,
+        use_ai: document.getElementById("use-ai").checked,
         query: document.getElementById("query").value || null
       };
       show("正在联网搜索并生成题目...");

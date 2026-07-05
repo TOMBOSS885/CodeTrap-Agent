@@ -15,7 +15,10 @@ def test_all_families_generate_problem_bundle():
         bundle = family.generate_problem_bundle("edge", 2, [], "unit test query", "online_search_disabled")
         assert bundle.statement.startswith("# ")
         assert len(bundle.cases) == 2
-        assert bundle.reference_answer.startswith("from ")
+        namespace = {}
+        exec(bundle.reference_answer, namespace)
+        assert callable(namespace["solve"])
+        assert namespace["solve"](bundle.cases[0].input_data) == bundle.cases[0].expected_output
         assert all(case.expected_output is not None for case in bundle.cases)
 
 
