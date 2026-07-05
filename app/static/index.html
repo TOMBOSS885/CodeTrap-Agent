@@ -121,6 +121,7 @@
   <script>
     let selected = null;
     let generatedCases = [];
+    let problemId = null;
     let reportId = null;
     const out = document.getElementById("output");
     const show = (value) => out.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -208,8 +209,9 @@
       show("正在联网搜索并生成题目...");
       const res = await fetch(`/api/families/${selected}/problem`, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) }).then(r => r.json());
       const problem = res.problem;
+      problemId = res.problem_id;
       generatedCases = problem.cases || [];
-      document.getElementById("statement").textContent = problem.statement;
+      document.getElementById("statement").textContent = `题目记录 ID：${problemId}\n生成任务 ID：${res.run_id}\n\n${problem.statement}`;
       document.getElementById("reference-answer").textContent = problem.reference_answer;
       renderCases(generatedCases);
       renderSources(problem);
@@ -223,7 +225,11 @@
       form.append("file", file);
       form.append("level", level.value);
       form.append("count", count.value);
-      if (generatedCases.length) form.append("cases_json", JSON.stringify(generatedCases));
+      if (problemId) {
+        form.append("problem_id", problemId);
+      } else if (generatedCases.length) {
+        form.append("cases_json", JSON.stringify(generatedCases));
+      }
       const res = await fetch(`/api/judge/${selected}`, { method:"POST", body: form }).then(r => r.json());
       reportId = res.report_id;
       document.getElementById("download").disabled = !reportId;

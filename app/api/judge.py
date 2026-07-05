@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.config import REPORT_DIR, SANDBOX_BACKEND, SANDBOX_DOCKER_IMAGE, UPLOAD_DIR
 from app.database import db
+from app.repositories import load_problem_bundle
 from codetrap.core.registry import registry
 from codetrap.core.testcase import TestCase
 from codetrap.judge.runner import JudgeRunner
@@ -22,6 +23,7 @@ async def judge_solution(
     family_id: str,
     level: str = Form("basic"),
     count: int = Form(5),
+    problem_id: str | None = Form(None),
     cases_json: str | None = Form(None),
     file: UploadFile = File(...),
 ):
@@ -35,7 +37,15 @@ async def judge_solution(
     suffix = ".py" if not file.filename or not file.filename.endswith(".py") else ""
     solution_path = UPLOAD_DIR / f"{run_id}_{file.filename or 'solution'}{suffix}"
     solution_path.write_bytes(await file.read())
-    if cases_json:
+    if problem_id:
+        with db() as conn:
+            bundle = load_problem_bundle(conn, problem_id)
+        if bundle is None:
+            raise HTTPException(status_code=404, detail="problem not found")
+        if bundle.family_id != family_id:
+            raise HTTPException(status_code=400, detail="problem family does not match judge endpoint")
+        cases = bundle.cases
+    elif cases_json:
         raw_cases = json.loads(cases_json)
         cases = [TestCase.model_validate(item) for item in raw_cases]
     else:
@@ -50,6 +60,6 @@ async def judge_solution(
     md_path.write_text(md, encoding="utf-8")
     html_path.write_text(html, encoding="utf-8")
     with db() as conn:
-        conn.execute("insert into judge_runs (id, family_id, solution_name, passed, total_cases, passed_cases) values (?, ?, ?, ?, ?, ?)", (run_id, family_id, file.filename or "solution.py", int(result.passed), result.total_cases, result.passed_cases))
+        conn.execute("insert into judge_runs (id, family_id, problem_id, solution_name, passed, total_cases, passed_cases) values (?, ?, ?, ?, ?, ?, ?)", (run_id, family_id, problem_id, file.filename or "solution.py", int(result.passed), result.total_cases, result.passed_cases))
         conn.execute("insert into reports (id, judge_run_id, markdown_path, html_path) values (?, ?, ?, ?)", (report_id, run_id, str(md_path), str(html_path)))
-    return {"report_id": report_id, "sandbox": getattr(sandbox, "backend_name", SANDBOX_BACKEND), "result": result.model_dump()}
+    return {"report_id": report_id, "judge_run_id": run_id, "problem_id": problem_id, "sandbox": getattr(sandbox, "backend_name", SANDBOX_BACKEND), "result": result.model_dump()}

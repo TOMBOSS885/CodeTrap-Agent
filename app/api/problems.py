@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, HTTPException
 
 from app.database import db
+from app.repositories import list_problem_bundle_summaries, load_problem_bundle, save_problem_bundle
 from app.schemas import GenerateCasesRequest
 from codetrap.core.registry import registry
 from codetrap.search.web_search import search_related_problems
@@ -66,6 +67,21 @@ def generate_cases(family_id: str, request: GenerateCasesRequest):
     return {"run_id": run_id, "cases": [case.model_dump() for case in cases]}
 
 
+@router.get("/problems")
+def list_problems(limit: int = 50):
+    with db() as conn:
+        return list_problem_bundle_summaries(conn, limit=min(max(limit, 1), 200))
+
+
+@router.get("/problems/{problem_id}")
+def get_problem(problem_id: str):
+    with db() as conn:
+        bundle = load_problem_bundle(conn, problem_id)
+    if bundle is None:
+        raise HTTPException(status_code=404, detail="problem not found")
+    return {"problem_id": problem_id, "problem": bundle.model_dump()}
+
+
 @router.post("/families/{family_id}/problem")
 def generate_problem(family_id: str, request: GenerateCasesRequest):
     try:
@@ -79,6 +95,8 @@ def generate_problem(family_id: str, request: GenerateCasesRequest):
         sources, search_status = [], "online_search_disabled"
     bundle = family.generate_problem_bundle(request.level, request.count, sources, query, search_status)
     run_id = uuid.uuid4().hex
+    problem_id = uuid.uuid4().hex
     with db() as conn:
         conn.execute("insert into problem_runs (id, family_id, level, count) values (?, ?, ?, ?)", (run_id, family_id, request.level, request.count))
-    return {"run_id": run_id, "problem": bundle.model_dump()}
+        save_problem_bundle(conn, problem_id, run_id, bundle)
+    return {"run_id": run_id, "problem_id": problem_id, "problem": bundle.model_dump()}

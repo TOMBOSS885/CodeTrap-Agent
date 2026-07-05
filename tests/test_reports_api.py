@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.database import db
 from codetrap.core.registry import registry
 from codetrap.reports.html_report import render_html_report
 from codetrap.reports.markdown_report import render_markdown_report
@@ -36,9 +37,33 @@ def test_problem_bundle_api_without_online_search():
     client = TestClient(app)
     response = client.post("/api/families/graph_paths/problem", json={"level": "edge", "count": 2, "search_online": False})
     assert response.status_code == 200
-    data = response.json()["problem"]
+    payload = response.json()
+    problem_id = payload["problem_id"]
+    data = payload["problem"]
     assert data["statement"].startswith("# ")
     assert len(data["cases"]) == 2
     assert data["cases"][0]["expected_output"] is not None
     assert "def solve(input_data)" in data["reference_answer"]
     assert data["search_status"] == "online_search_disabled"
+
+    detail = client.get(f"/api/problems/{problem_id}")
+    assert detail.status_code == 200
+    assert detail.json()["problem"]["cases"][0]["expected_output"] is not None
+
+
+def test_judge_run_can_link_to_problem_bundle():
+    client = TestClient(app)
+    problem = client.post("/api/families/graph_paths/problem", json={"level": "basic", "count": 1, "search_online": False}).json()
+    problem_id = problem["problem_id"]
+    with open("examples/correct_solution.py", "rb") as handle:
+        response = client.post(
+            "/api/judge/graph_paths",
+            data={"problem_id": problem_id},
+            files={"file": ("correct_solution.py", handle, "text/x-python")},
+        )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["problem_id"] == problem_id
+    with db() as conn:
+        row = conn.execute("select problem_id from judge_runs where id = ?", (payload["judge_run_id"],)).fetchone()
+    assert row[0] == problem_id
