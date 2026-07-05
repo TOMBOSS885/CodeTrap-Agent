@@ -56,6 +56,12 @@ docker compose ps
 curl http://localhost:3141/health
 ```
 
+If the server cannot pull `python:3.11-slim` from Docker Hub, set a mirror-backed base image in `.env` before building:
+
+```env
+PYTHON_IMAGE=docker.m.daocloud.io/python:3.11-slim
+```
+
 ## Sandbox Backends
 
 The default backend is the local subprocess runner:

@@ -1,6 +1,9 @@
 services:
   codetrap-agent:
-    build: .
+    build:
+      context: .
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11-slim}
     container_name: codetrap-agent
     ports:
       - "3141:3141"
