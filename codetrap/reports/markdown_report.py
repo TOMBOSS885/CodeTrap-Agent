@@ -8,45 +8,44 @@ from codetrap.utils.json_utils import to_pretty_json
 def render_markdown_report(family: ProblemFamily, solution_name: str, result: JudgeResult) -> str:
     rate = 0 if result.total_cases == 0 else result.passed_cases / result.total_cases * 100
     lines = [
-        "# CodeTrap-Agent Evaluation Report",
+        "# CodeTrap-Agent 评测报告",
         "",
-        f"- Problem family: {family.title} (`{family.family_id}`)",
-        f"- Candidate file: `{solution_name}`",
-        f"- Total cases: {result.total_cases}",
-        f"- Passed cases: {result.passed_cases}",
-        f"- Failed cases: {len(result.failed_cases)}",
-        f"- Pass rate: {rate:.1f}%",
-        f"- Runtime: {result.runtime_ms} ms",
+        f"- 题型：{family.title} (`{family.family_id}`)",
+        f"- 候选文件：`{solution_name}`",
+        f"- 测试用例总数：{result.total_cases}",
+        f"- 通过用例数：{result.passed_cases}",
+        f"- 失败用例数：{len(result.failed_cases)}",
+        f"- 通过率：{rate:.1f}%",
+        f"- 运行耗时：{result.runtime_ms} ms",
         "",
-        "## Weakness Summary",
+        "## 弱点总结",
         "",
         result.weakness_summary,
         "",
-        "## Failed Cases",
+        "## 失败用例",
         "",
     ]
     if not result.failed_cases:
-        lines.append("No failed cases.")
+        lines.append("本次评测没有失败用例。")
     for failed in result.failed_cases:
         lines.extend([
             f"### {failed.name} (`{failed.case_id}`)",
             "",
-            f"- Error type: `{failed.error_type}`",
-            f"- Trap reason: {failed.trap_reason}",
+            f"- 错误类型：`{failed.error_type}`",
+            f"- 陷阱原因：{failed.trap_reason}",
             "",
-            "**Input**",
+            "**输入**",
             "```json",
             to_pretty_json(failed.input_data),
             "```",
-            "**Expected**",
+            "**期望输出**",
             "```json",
             to_pretty_json(failed.expected_output),
             "```",
-            "**Actual**",
+            "**实际输出**",
             "```json",
             to_pretty_json(failed.actual_output),
             "```",
         ])
-    lines.extend(["", "## Improvement Advice", "", "Review the failed trap categories and add targeted reasoning for boundary validation, state initialization, and operation semantics."])
+    lines.extend(["", "## 改进建议", "", "请重点检查失败用例对应的陷阱类别，并针对输入校验、边界条件、初始状态和操作语义补充处理逻辑。"])
     return "\n".join(lines)
-

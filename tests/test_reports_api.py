@@ -11,11 +11,11 @@ def test_markdown_report_generation():
     family = registry.get("graph_paths")
     result = JudgeRunner(timeout_sec=3).judge(family, "examples/wrong_solution_graph.py", family.generate_cases("edge", 1))
     report = render_markdown_report(family, "wrong_solution_graph.py", result)
-    assert "CodeTrap-Agent Evaluation Report" in report
-    assert "Weakness Summary" in report
+    assert "CodeTrap-Agent 评测报告" in report
+    assert "弱点总结" in report
     html = render_html_report(family, "wrong_solution_graph.py", result)
     assert "<section class=\"panel\">" in html
-    assert "Failed Cases" in html
+    assert "失败用例" in html
 
 
 def test_health_api():

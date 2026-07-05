@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,49 +43,53 @@
 <body>
   <header>
     <h1>CodeTrap-Agent</h1>
-    <p>Adversarial programming problem generation, judging, and weakness reporting for coding models.</p>
+    <p>面向编程大模型的对抗式出题、自动评测与弱点分析系统。</p>
   </header>
   <main>
     <aside>
-      <h2>Problem families</h2>
+      <h2>题型列表</h2>
       <div id="families" class="families"></div>
     </aside>
     <div class="layout">
       <section>
-        <h2 id="family-title">Select a family</h2>
+        <h2 id="family-title">请选择题型</h2>
         <p id="family-desc"></p>
         <div class="panel">
-          <h3>Formats</h3>
-          <p><strong>Input:</strong> <code id="input-format"></code></p>
-          <p><strong>Output:</strong> <code id="output-format"></code></p>
+          <h3>输入输出格式</h3>
+          <p><strong>输入：</strong> <code id="input-format"></code></p>
+          <p><strong>输出：</strong> <code id="output-format"></code></p>
         </div>
         <div class="row">
           <div>
-            <label for="level">Case level</label>
-            <select id="level"><option>basic</option><option>edge</option><option>adversarial</option></select>
+            <label for="level">测试等级</label>
+            <select id="level">
+              <option value="basic">基础 basic</option>
+              <option value="edge">边界 edge</option>
+              <option value="adversarial">对抗 adversarial</option>
+            </select>
           </div>
           <div>
-            <label for="count">Case count</label>
+            <label for="count">测试用例数量</label>
             <input id="count" type="number" min="1" max="50" value="5">
           </div>
         </div>
-        <button id="generate">Generate cases</button>
-        <label for="solution">Upload candidate Python solution</label>
+        <button id="generate">生成测试用例</button>
+        <label for="solution">上传候选 Python 解法</label>
         <input id="solution" type="file" accept=".py">
-        <button id="judge">Judge solution</button>
+        <button id="judge">开始评测</button>
         <div class="actions">
-          <button id="view-report" class="secondary" disabled>View HTML report</button>
-          <button id="download" class="secondary" disabled>Download Markdown</button>
+          <button id="view-report" class="secondary" disabled>查看 HTML 报告</button>
+          <button id="download" class="secondary" disabled>下载 Markdown</button>
         </div>
         <div id="stats" class="stats"></div>
         <div class="panel">
-          <h3>Output</h3>
-          <pre id="output">Loading families...</pre>
+          <h3>运行输出</h3>
+          <pre id="output">正在加载题型...</pre>
         </div>
       </section>
       <section>
-        <h2>Common wrong solutions</h2>
-        <div id="mutants"><p>Select a family to inspect its mutants.</p></div>
+        <h2>常见错误解法</h2>
+        <div id="mutants"><p>请选择题型查看错误解法样例。</p></div>
       </section>
     </div>
   </main>
@@ -100,9 +104,9 @@
       if (!result) { stats.innerHTML = ""; return; }
       const rate = result.total_cases ? (result.passed_cases / result.total_cases * 100).toFixed(1) : "0.0";
       stats.innerHTML = `
-        <div class="stat"><strong>${result.total_cases}</strong><span>Total</span></div>
-        <div class="stat"><strong class="passed">${result.passed_cases}</strong><span>Passed</span></div>
-        <div class="stat"><strong class="${result.failed_cases.length ? "failed" : "passed"}">${rate}%</strong><span>Pass rate</span></div>
+        <div class="stat"><strong>${result.total_cases}</strong><span>总用例</span></div>
+        <div class="stat"><strong class="passed">${result.passed_cases}</strong><span>通过</span></div>
+        <div class="stat"><strong class="${result.failed_cases.length ? "failed" : "passed"}">${rate}%</strong><span>通过率</span></div>
       `;
     }
     async function selectFamily(familyId) {
@@ -144,7 +148,7 @@
     };
     document.getElementById("judge").onclick = async () => {
       const file = document.getElementById("solution").files[0];
-      if (!file) { show("Choose a Python file first."); return; }
+      if (!file) { show("请先选择一个 Python 文件。"); return; }
       const form = new FormData();
       form.append("file", file);
       form.append("level", level.value);
