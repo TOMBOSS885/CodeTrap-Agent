@@ -31,15 +31,15 @@ tests/               pytest coverage
 
 ```bash
 py -3.12 -m pip install -r requirements.txt
-py -3.12 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+py -3.12 -m uvicorn app.main:app --host 0.0.0.0 --port 3141
 ```
 
-Open `http://localhost:8000`.
+Open `http://localhost:3141`.
 
 Health check:
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:3141/health
 ```
 
 Expected:
@@ -53,7 +53,7 @@ Expected:
 ```bash
 docker compose up --build -d
 docker compose ps
-curl http://localhost:8000/health
+curl http://localhost:3141/health
 ```
 
 ## Sandbox Backends
@@ -86,7 +86,7 @@ The Docker backend runs each case with `--network none`, a read-only filesystem,
 Generate cases:
 
 ```bash
-curl -X POST http://localhost:8000/api/families/graph_paths/cases ^
+curl -X POST http://localhost:3141/api/families/graph_paths/cases ^
   -H "Content-Type: application/json" ^
   -d "{\"level\":\"edge\",\"count\":5}"
 ```
@@ -94,7 +94,7 @@ curl -X POST http://localhost:8000/api/families/graph_paths/cases ^
 Judge a solution:
 
 ```bash
-curl -X POST http://localhost:8000/api/judge/graph_paths ^
+curl -X POST http://localhost:3141/api/judge/graph_paths ^
   -F "level=edge" ^
   -F "count=5" ^
   -F "file=@examples/wrong_solution_graph.py"

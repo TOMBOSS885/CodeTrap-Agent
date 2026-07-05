@@ -3,8 +3,10 @@ services:
     build: .
     container_name: codetrap-agent
     ports:
-      - "8000:8000"
+      - "3141:3141"
+    environment:
+      - CODETRAP_SANDBOX=${CODETRAP_SANDBOX:-subprocess}
+      - CODETRAP_DOCKER_IMAGE=${CODETRAP_DOCKER_IMAGE:-python:3.11-slim}
     volumes:
       - ./data:/app/data
     restart: unless-stopped
-
