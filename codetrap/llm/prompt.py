@@ -3,40 +3,49 @@ from __future__ import annotations
 from codetrap.core.problem import ProblemVariant
 
 
-def build_problem_prompt(family_title: str, input_format: str, output_format: str, traps: list[str], sources: list[dict]) -> str:
+def build_problem_prompt(
+    family_title: str,
+    input_format: str,
+    output_format: str,
+    traps: list[str],
+    sources: list[dict],
+) -> str:
     source_text = "\n".join(
-        f"- {item.get('title', '')}: {item.get('snippet', '')} ({item.get('url', '')})"
-        for item in sources[:5]
-    ) or "- 无在线来源，请基于题型本身生成。"
+        f"- 标题：{item.get('title', '')}\n  摘要：{item.get('snippet', '')}\n  链接：{item.get('url', '')}"
+        for item in sources[:6]
+    ) or "- 没有可用在线来源，请基于题型和陷阱要求原创生成。"
     trap_text = "\n".join(f"- {item}" for item in traps)
-    return f"""你是算法题出题专家，目标是生成一道容易让编程 AI 出错、但题意严谨可评测的中文编程题。
+    return f"""你是资深算法竞赛出题人，尤其擅长设计让编程大模型出错的“坑题”。
 
-题型：{family_title}
-输入格式固定：{input_format}
-输出格式固定：{output_format}
+你的任务：为给定题型生成一道原创中文编程题题面。题目要更像真实在线评测题，而不是模板改写。
 
-必须遵守：
-1. 只生成题面，不生成测试用例，不生成答案代码。
-2. 不要改变输入输出 JSON schema。
-3. 题面要原创，不要复制搜索结果原文。
-4. 必须突出边界条件、非法输入和 AI 容易误判点。
-5. 返回严格 JSON，不要 Markdown 代码块。
+固定题型：{family_title}
+固定输入 JSON schema：{input_format}
+固定输出 JSON schema：{output_format}
 
-容易出错的点：
+硬性约束：
+1. 只生成题面元信息，不生成测试用例，不生成参考答案代码。
+2. 不能改变输入 JSON schema 和输出 JSON schema，否则系统无法自动评测。
+3. 题面必须原创，不得复制搜索结果原文。
+4. 题面必须包含清晰的非法输入处理规则、边界条件和判定细节。
+5. 至少设计 8 个容易让 AI 写错的坑点，并自然融入题面规则。
+6. 题目不能含糊，必须让一个普通程序员能按题面独立实现。
+7. 返回严格 JSON，不要 Markdown，不要解释文字，不要代码块。
+
+本题型已有核心坑点：
 {trap_text}
 
-搜索到的相关素材：
+联网搜索到的相关素材，仅用于启发，不可照抄：
 {source_text}
 
-返回 JSON 格式：
+请返回如下 JSON：
 {{
-  "title": "中文题目标题",
-  "statement": "完整中文题面，包含任务描述和判定规则",
-  "tags": ["tag1", "tag2"]
+  "title": "中文题目标题，具体、有场景感",
+  "statement": "完整中文题面。必须包含：背景、任务、输入对象说明、输出规则、非法输入处理、至少 8 个边界/坑点说明。",
+  "tags": ["中文标签1", "中文标签2", "adversarial"]
 }}
 """
 
 
 def fallback_variant(title: str, statement: str, tags: list[str]) -> ProblemVariant:
     return ProblemVariant(id="ai-fallback", title=title, statement=statement, tags=tags)
-

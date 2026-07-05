@@ -61,7 +61,7 @@ class LLMProblemGenerator:
         payload = {
             "model": model,
             "messages": [
-                {"role": "system", "content": "你只输出严格 JSON。"},
+                {"role": "system", "content": "你只输出严格 JSON，不要 Markdown 代码块，不要额外解释。"},
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.7,
@@ -140,4 +140,3 @@ def _default_model(provider: str) -> str:
         "zhipu": "glm-4-flash",
     }
     return defaults.get(provider, "gpt-4o-mini")
-

@@ -15,6 +15,68 @@ from codetrap.search.web_search import search_related_problems
 router = APIRouter()
 
 
+@router.get("/llm/providers")
+def list_llm_providers():
+    return [
+        {
+            "id": "openai",
+            "name": "OpenAI",
+            "default_model": "gpt-4o-mini",
+            "default_api_base": "https://api.openai.com/v1",
+            "compatible": True,
+        },
+        {
+            "id": "openai_compatible",
+            "name": "OpenAI 兼容接口",
+            "default_model": "gpt-4o-mini",
+            "default_api_base": "https://api.openai.com/v1",
+            "compatible": True,
+        },
+        {
+            "id": "deepseek",
+            "name": "DeepSeek",
+            "default_model": "deepseek-chat",
+            "default_api_base": "https://api.deepseek.com/v1",
+            "compatible": True,
+        },
+        {
+            "id": "qwen",
+            "name": "通义千问 DashScope",
+            "default_model": "qwen-plus",
+            "default_api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "compatible": True,
+        },
+        {
+            "id": "moonshot",
+            "name": "Moonshot Kimi",
+            "default_model": "moonshot-v1-8k",
+            "default_api_base": "https://api.moonshot.cn/v1",
+            "compatible": True,
+        },
+        {
+            "id": "zhipu",
+            "name": "智谱 GLM",
+            "default_model": "glm-4-flash",
+            "default_api_base": "https://open.bigmodel.cn/api/paas/v4",
+            "compatible": True,
+        },
+        {
+            "id": "anthropic",
+            "name": "Anthropic Claude",
+            "default_model": "claude-3-5-sonnet-latest",
+            "default_api_base": "https://api.anthropic.com/v1",
+            "compatible": False,
+        },
+        {
+            "id": "gemini",
+            "name": "Google Gemini",
+            "default_model": "gemini-1.5-pro",
+            "default_api_base": "https://generativelanguage.googleapis.com/v1beta",
+            "compatible": False,
+        },
+    ]
+
+
 @router.get("/families")
 def list_families():
     return [
@@ -98,7 +160,14 @@ def generate_problem(family_id: str, request: GenerateCasesRequest):
     ai_variant = None
     generation_status = "local_variant"
     if request.use_ai:
-        generator = LLMProblemGenerator(LLMConfig(provider=LLM_PROVIDER, api_key=LLM_API_KEY, model=LLM_MODEL, api_base=LLM_API_BASE))
+        generator = LLMProblemGenerator(
+            LLMConfig(
+                provider=(request.llm_provider or LLM_PROVIDER),
+                api_key=(request.llm_api_key or LLM_API_KEY),
+                model=(request.llm_model or LLM_MODEL),
+                api_base=(request.llm_api_base or LLM_API_BASE),
+            )
+        )
         ai_variant, generation_status = generator.generate_variant(family, sources)
     bundle = family.generate_problem_bundle(request.level, request.count, sources, query, search_status, variant=ai_variant, generation_status=generation_status)
     run_id = uuid.uuid4().hex

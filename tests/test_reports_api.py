@@ -67,3 +67,32 @@ def test_judge_run_can_link_to_problem_bundle():
     with db() as conn:
         row = conn.execute("select problem_id from judge_runs where id = ?", (payload["judge_run_id"],)).fetchone()
     assert row[0] == problem_id
+
+
+def test_llm_provider_list_api():
+    client = TestClient(app)
+    response = client.get("/api/llm/providers")
+    assert response.status_code == 200
+    providers = response.json()
+    ids = {item["id"] for item in providers}
+    assert {"openai", "deepseek", "qwen", "anthropic", "gemini"}.issubset(ids)
+
+
+def test_problem_bundle_ai_request_falls_back_without_key():
+    client = TestClient(app)
+    response = client.post(
+        "/api/families/graph_paths/problem",
+        json={
+            "level": "basic",
+            "count": 1,
+            "search_online": False,
+            "use_ai": True,
+            "llm_provider": "deepseek",
+            "llm_model": "deepseek-chat",
+            "llm_api_base": "https://api.deepseek.com/v1",
+            "llm_api_key": "",
+        },
+    )
+    assert response.status_code == 200
+    status = response.json()["problem"]["search_status"]
+    assert "llm_disabled" in status
