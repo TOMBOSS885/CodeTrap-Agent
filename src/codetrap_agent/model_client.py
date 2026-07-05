@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import socket
 import time
 import urllib.error
@@ -68,10 +69,14 @@ def real_completion(config: RuntimeConfig, model: str, prompt: str, timeout: flo
         raise ModelAPIError("model request timed out", request_raw, response_raw) from exc
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
-        response_raw = {"error_type": "http_error", "status_code": exc.code, "error": detail[:1000]}
+        response_raw = {
+            "error_type": "http_error",
+            "status_code": exc.code,
+            "error": _redact_secrets(detail, config.api_key)[:1000],
+        }
         raise ModelAPIError(f"model request failed: HTTP {exc.code}", request_raw, response_raw) from exc
     except urllib.error.URLError as exc:
-        response_raw = {"error_type": "url_error", "error": str(exc.reason)}
+        response_raw = {"error_type": "url_error", "error": _redact_secrets(str(exc.reason), config.api_key)}
         raise ModelAPIError("model request failed", request_raw, response_raw) from exc
     payload.setdefault("schema_version", "codetrap-agent.api_response.v1")
     payload.setdefault("created_at", int(time.time()))
@@ -80,3 +85,8 @@ def real_completion(config: RuntimeConfig, model: str, prompt: str, timeout: flo
     if choices and isinstance(choices[0], dict):
         content = str((choices[0].get("message") or {}).get("content", ""))
     return ModelResult(request_raw=request_raw, response_raw=payload, content=content)
+
+
+def _redact_secrets(text: str, api_key: str) -> str:
+    redacted = text.replace(api_key, "[REDACTED]") if api_key else text
+    return re.sub(r"sk-[A-Za-z0-9._-]+", "[REDACTED]", redacted)

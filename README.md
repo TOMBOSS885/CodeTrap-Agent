@@ -31,3 +31,21 @@ pytest
 ```
 
 默认数据目录为 `.codetrap-agent`，所有题包和原始模型响应都会保存在本地。
+
+## Docker 部署
+
+先创建 `.env`，至少设置后台访问密码：
+
+```env
+CODETRAP_PASSWORD=换成一个强密码
+PYTHON_IMAGE=docker.m.daocloud.io/library/python:3.12-slim
+PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+然后启动：
+
+```bash
+docker compose up -d --build
+```
+
+访问 `http://服务器IP:3141`，浏览器弹窗登录时用户名是 `admin`，密码是 `.env` 里的 `CODETRAP_PASSWORD`。

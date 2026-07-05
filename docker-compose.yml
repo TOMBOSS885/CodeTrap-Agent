@@ -7,6 +7,9 @@ services:
         PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
     ports:
       - "3141:3141"
+    environment:
+      CODETRAP_PASSWORD: ${CODETRAP_PASSWORD:?set CODETRAP_PASSWORD in .env}
+      CODETRAP_ALLOW_PRIVATE_BASE_URL: ${CODETRAP_ALLOW_PRIVATE_BASE_URL:-0}
     volumes:
       - codetrap-agent-data:/data
 

@@ -4,6 +4,7 @@ from codetrap_agent.generator import generate_bundle
 from codetrap_agent.mock_data import mock_generation
 from codetrap_agent.prompting import build_generation_prompt
 from codetrap_agent.schemas import normalize_bundle
+from codetrap_agent.config import validate_base_url
 
 
 def test_prompt_demands_pitfalls_and_tests() -> None:
@@ -25,3 +26,12 @@ def test_generate_bundle_persists_state(tmp_path) -> None:
     assert bundle["bundle_id"].startswith("trap_")
     assert (tmp_path / "state.json").exists()
     assert (tmp_path / "raw-responses" / f"{bundle['bundle_id']}.request.json").exists()
+
+
+def test_private_base_url_is_blocked_by_default() -> None:
+    try:
+        validate_base_url("http://127.0.0.1:8000/v1")
+    except ValueError as exc:
+        assert "private" in str(exc)
+    else:
+        raise AssertionError("private base_url should be blocked by default")

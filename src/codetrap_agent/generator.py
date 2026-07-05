@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import load_runtime_config
+from .constants import MAX_PROMPT_CHARS, MAX_STORED_BUNDLES
 from .mock_data import mock_generation
 from .model_client import real_completion
 from .prompting import build_generation_prompt
@@ -24,6 +25,11 @@ def generate_bundle(
     difficulty: str = "hard",
     use_mock: bool = False,
 ) -> dict[str, Any]:
+    topic = topic.strip()
+    if not topic:
+        raise ValueError("prompt cannot be empty")
+    if len(topic) > MAX_PROMPT_CHARS:
+        raise ValueError(f"prompt is too long; maximum is {MAX_PROMPT_CHARS} characters")
     state = load_state(root)
     selected_model = model or _first_model(state)
     prompt = build_generation_prompt(topic, count, language, difficulty)
@@ -43,6 +49,7 @@ def generate_bundle(
     write_json(root / "raw-responses" / f"{bundle['bundle_id']}.request.json", request_raw)
     write_json(root / "raw-responses" / f"{bundle['bundle_id']}.response.json", response_raw)
     state.setdefault("bundles", []).insert(0, bundle)
+    state["bundles"] = state["bundles"][:MAX_STORED_BUNDLES]
     append_audit(state, "bundle.generated", bundle["bundle_id"])
     save_state(root, state)
     return bundle

@@ -9,6 +9,10 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src ./src
 RUN python -m pip install --no-cache-dir .
+RUN useradd --create-home --shell /usr/sbin/nologin codetrap \
+    && mkdir -p /data \
+    && chown -R codetrap:codetrap /data
 
 EXPOSE 3141
+USER codetrap
 CMD ["codetrap-agent", "serve", "--host", "0.0.0.0", "--port", "3141", "--data-dir", "/data"]

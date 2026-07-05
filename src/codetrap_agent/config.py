@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import ipaddress
+import os
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 MASKED_API_KEY = "********"
@@ -26,8 +29,12 @@ def parse_models(value: str | list[str]) -> list[str]:
 
 
 def validate_base_url(value: str) -> None:
-    if value and not (value.startswith("http://") or value.startswith("https://")):
+    parsed = urlparse(value)
+    if value and parsed.scheme not in {"http", "https"}:
         raise ValueError("base_url must start with http:// or https://")
+    host = parsed.hostname or ""
+    if not _private_base_urls_allowed() and _is_private_host(host):
+        raise ValueError("private or localhost base_url is disabled")
 
 
 def validate_api_key(value: str) -> None:
@@ -64,3 +71,24 @@ def load_runtime_config(root: Path, settings: dict | None = None) -> RuntimeConf
 def update_local_api_key(root: Path, api_key: str) -> None:
     root.mkdir(parents=True, exist_ok=True)
     env_path(root).write_text(f"API_KEY={api_key.strip()}\n", encoding="utf-8")
+
+
+def app_password() -> str:
+    return os.environ.get("CODETRAP_PASSWORD", "").strip()
+
+
+def _private_base_urls_allowed() -> bool:
+    return os.environ.get("CODETRAP_ALLOW_PRIVATE_BASE_URL", "").strip().lower() in {"1", "true", "yes"}
+
+
+def _is_private_host(host: str) -> bool:
+    if not host:
+        return False
+    lowered = host.lower()
+    if lowered in {"localhost", "host.docker.internal"} or lowered.endswith(".local"):
+        return True
+    try:
+        address = ipaddress.ip_address(lowered)
+    except ValueError:
+        return False
+    return address.is_private or address.is_loopback or address.is_link_local

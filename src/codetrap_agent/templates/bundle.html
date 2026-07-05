@@ -12,10 +12,6 @@
       <strong>CodeTrap-Agent</strong>
       <span>题包详情</span>
     </div>
-    <nav>
-      <a href="/">生成题目</a>
-      <a class="active" href="/bundle/{{ bundle.bundle_id }}">当前题包</a>
-    </nav>
   </header>
 
   <main>
@@ -25,7 +21,6 @@
         <h1>{{ bundle.topic }}</h1>
         <p>{{ bundle.bundle_id }} · {{ bundle.model }} · 质量分 {{ bundle.quality.score }}</p>
       </div>
-      <a class="button" href="/bundle/{{ bundle.bundle_id }}/export">导出 JSON</a>
     </section>
 
     {% for problem in bundle.problems %}
