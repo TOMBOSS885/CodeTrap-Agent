@@ -20,7 +20,7 @@ codetrap-agent init
 codetrap-agent settings set --base-url https://api.example.com/v1 --api-key sk-xxx --models gpt-4.1
 codetrap-agent generate --topic "字符串解析" --count 2
 codetrap-agent list
-codetrap-agent serve
+codetrap-agent serve --port 3141
 ```
 
 没有可用模型时，可以用 mock 模式跑通流程：

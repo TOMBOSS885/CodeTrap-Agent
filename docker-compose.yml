@@ -2,7 +2,7 @@ services:
   codetrap-agent:
     build: .
     ports:
-      - "8000:8000"
+      - "3141:3141"
     volumes:
       - codetrap-agent-data:/data
 

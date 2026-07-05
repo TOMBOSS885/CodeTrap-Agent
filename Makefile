@@ -10,7 +10,7 @@ lint:
 	python -m ruff check src tests
 
 serve:
-	codetrap-agent serve
+	codetrap-agent serve --port 3141
 
 mock:
 	codetrap-agent generate --topic "字符串解析" --count 1 --mock

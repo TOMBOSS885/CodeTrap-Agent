@@ -136,7 +136,7 @@ def export(bundle_id: str = typer.Argument(...), data_dir: Path = typer.Option(d
 @app.command("serve")
 def serve(
     host: str = typer.Option("127.0.0.1", "--host"),
-    port: int = typer.Option(8000, "--port"),
+    port: int = typer.Option(3141, "--port"),
     data_dir: Path = typer.Option(default_root(), "--data-dir"),
 ) -> None:
     uvicorn.run(create_app(ensure_tree(data_dir)), host=host, port=port)
