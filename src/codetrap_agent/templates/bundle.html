@@ -7,38 +7,75 @@
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  <main class="shell">
-    <header class="topbar">
+  <header class="topbar">
+    <div class="brand">
+      <strong>CodeTrap-Agent</strong>
+      <span>题包详情</span>
+    </div>
+    <nav>
+      <a href="/">生成题目</a>
+      <a class="active" href="/bundle/{{ bundle.bundle_id }}">当前题包</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="panel hero">
       <div>
-        <a href="/" class="back">返回</a>
+        <a href="/" class="back">返回首页</a>
         <h1>{{ bundle.topic }}</h1>
-        <p>{{ bundle.bundle_id }} · {{ bundle.model }} · score {{ bundle.quality.score }}</p>
+        <p>{{ bundle.bundle_id }} · {{ bundle.model }} · 质量分 {{ bundle.quality.score }}</p>
       </div>
       <a class="button" href="/bundle/{{ bundle.bundle_id }}/export">导出 JSON</a>
-    </header>
+    </section>
 
     {% for problem in bundle.problems %}
       <article class="problem">
         <h2>{{ problem.title }}</h2>
         <p>{{ problem.statement }}</p>
+
+        <h3>函数签名</h3>
         <pre>{{ problem.signature }}</pre>
-        <h3>坑点</h3>
+
+        <h3>公开样例与隐藏测试</h3>
+        <table>
+          <thead><tr><th>名称</th><th>类型</th><th>输入</th><th>期望输出</th><th>目的</th></tr></thead>
+          <tbody>
+          {% for test in problem.tests %}
+            <tr>
+              <td>{{ test.name }}</td>
+              <td>{{ test.visibility }}</td>
+              <td><code>{{ test.kwargs }}</code></td>
+              <td><code>{{ test.expected }}</code></td>
+              <td>{{ test.purpose }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+
+        <h3>坑点说明</h3>
         <div class="chips">
           {% for pitfall in problem.pitfalls %}
             <span>{{ pitfall.dimension }} · {{ pitfall.name }}</span>
           {% endfor %}
         </div>
-        <h3>测试</h3>
         <table>
-          <thead><tr><th>name</th><th>visibility</th><th>purpose</th></tr></thead>
+          <thead><tr><th>坑点</th><th>常见错误</th><th>抓错测试</th></tr></thead>
           <tbody>
-          {% for test in problem.tests %}
-            <tr><td>{{ test.name }}</td><td>{{ test.visibility }}</td><td>{{ test.purpose }}</td></tr>
+          {% for pitfall in problem.pitfalls %}
+            <tr>
+              <td>{{ pitfall.description }}</td>
+              <td>{{ pitfall.likely_wrong_solution }}</td>
+              <td>{{ pitfall.caught_by|join(", ") }}</td>
+            </tr>
           {% endfor %}
           </tbody>
         </table>
-        <h3>参考解</h3>
+
+        <h3>参考答案</h3>
         <pre>{{ problem.reference_solution }}</pre>
+
+        <h3>对抗说明</h3>
+        <p>{{ problem.adversarial_notes }}</p>
       </article>
     {% endfor %}
   </main>

@@ -7,55 +7,96 @@
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  <main class="shell">
-    <header class="topbar">
+  <header class="topbar">
+    <div class="brand">
+      <strong>CodeTrap-Agent</strong>
+      <span>AI 出题工作台</span>
+    </div>
+    <nav>
+      <a class="active" href="/">生成题目</a>
+      <a href="#settings">模型设置</a>
+      <a href="#history">历史题包</a>
+    </nav>
+  </header>
+
+  <main>
+    {% if notice %}<div class="notice ok">{{ notice }}</div>{% endif %}
+    {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+
+    <section class="panel hero">
       <div>
-        <h1>CodeTrap-Agent</h1>
-        <p>AI 生成题面、参考解、测试用例和坑点，专门补普通题库的盲区。</p>
+        <h1>输入你的出题提示词</h1>
+        <p>系统会自动套用强化提示词库，让 AI 一次生成题面、公开样例、隐藏测试、参考答案和坑点说明。</p>
       </div>
-      <span class="badge">{{ state.settings.models|length }} models</span>
-    </header>
-
-    {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
-    {% if error %}<div class="error">{{ error }}</div>{% endif %}
-
-    <section class="grid">
-      <form class="panel" method="post" action="/generate">
-        <h2>生成题包</h2>
-        <label>主题<input name="topic" required placeholder="字符串解析 / 图论边界 / JSON Patch"></label>
-        <label>题目数量<input name="count" type="number" min="1" max="10" value="1"></label>
-        <label>模型<input name="model" placeholder="留空使用第一个模型"></label>
-        <label>难度
-          <select name="difficulty">
-            <option value="hard">hard</option>
-            <option value="expert">expert</option>
-            <option value="research">research</option>
-          </select>
-        </label>
-        <label class="check"><input name="mock" type="checkbox"> mock 模式</label>
-        <button type="submit">生成</button>
-      </form>
-
-      <form class="panel" method="post" action="/settings">
-        <h2>模型设置</h2>
-        <label>Base URL<input name="base_url" value="{{ state.settings.base_url }}" placeholder="https://api.example.com/v1"></label>
-        <label>API Key<input name="api_key" type="password" placeholder="sk-..."></label>
-        <label>Models<input name="models" value="{{ state.settings.models|join(',') }}" placeholder="gpt-4.1,o3"></label>
-        <button type="submit">保存设置</button>
-      </form>
+      <span class="version-badge">{{ state.settings.models|length }} models</span>
     </section>
 
-    <section class="list">
-      <h2>题包</h2>
-      {% for bundle in bundles %}
-        <a class="bundle" href="/bundle/{{ bundle.bundle_id }}">
-          <strong>{{ bundle.topic }}</strong>
-          <span>{{ bundle.bundle_id }}</span>
-          <span>score {{ bundle.quality.score }}</span>
-        </a>
-      {% else %}
-        <p class="empty">还没有题包。</p>
-      {% endfor %}
+    <section class="workspace">
+      <form class="panel generator" method="post" action="/generate">
+        <label>
+          出题提示词
+          <textarea
+            name="topic"
+            required
+            rows="10"
+            placeholder="例如：出一道字符串解析题，要求容易让 AI 忽略转义字符、空字段和连续分隔符；函数输入是一个字符串，返回解析后的列表。"
+          ></textarea>
+        </label>
+
+        <div class="form-row">
+          <label>题目数量<input name="count" type="number" min="1" max="10" value="1"></label>
+          <label>难度
+            <select name="difficulty">
+              <option value="hard">hard</option>
+              <option value="expert">expert</option>
+              <option value="research">research</option>
+            </select>
+          </label>
+          <label>模型<input name="model" placeholder="留空使用第一个模型"></label>
+        </div>
+
+        <div class="actions">
+          <button type="submit">生成题目、样例和答案</button>
+          <label class="check-row"><input name="mock" type="checkbox"> 使用 mock 模式</label>
+        </div>
+      </form>
+
+      <aside class="panel side" id="settings">
+        <h2>模型设置</h2>
+        <form method="post" action="/settings">
+          <label>Base URL<input name="base_url" value="{{ state.settings.base_url }}" placeholder="https://api.example.com/v1"></label>
+          <label>API Key<input name="api_key" type="password" placeholder="sk-..."></label>
+          <label>Models<input name="models" value="{{ state.settings.models|join(',') }}" placeholder="gpt-4.1,o3"></label>
+          <button type="submit">保存设置</button>
+        </form>
+      </aside>
+    </section>
+
+    <section class="panel" id="history">
+      <div class="section-toolbar">
+        <div>
+          <h2>历史题包</h2>
+          <p class="muted">点击题包可以查看完整题面、测试用例、参考答案和坑点。</p>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>提示词</th><th>题数</th><th>模型</th><th>质量分</th><th>查看</th></tr>
+        </thead>
+        <tbody>
+        {% for bundle in bundles %}
+          <tr>
+            <td>{{ bundle.topic }}</td>
+            <td>{{ bundle.problems|length }}</td>
+            <td>{{ bundle.model }}</td>
+            <td>{{ bundle.quality.score }}</td>
+            <td><a class="button secondary" href="/bundle/{{ bundle.bundle_id }}">打开</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="muted">还没有题包。输入提示词后生成第一组题。</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
     </section>
   </main>
 </body>
