@@ -1,6 +1,10 @@
 services:
   codetrap-agent:
-    build: .
+    build:
+      context: .
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-docker.m.daocloud.io/library/python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
     ports:
       - "3141:3141"
     volumes:
