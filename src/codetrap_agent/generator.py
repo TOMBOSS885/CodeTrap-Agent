@@ -9,7 +9,7 @@ from typing import Any
 from .config import load_runtime_config
 from .constants import MAX_PROMPT_CHARS, MAX_STORED_BUNDLES
 from .mock_data import mock_generation
-from .model_client import real_completion
+from .model_client import ModelAPIError, real_completion, streaming_completion
 from .prompting import build_generation_prompt
 from .schemas import normalize_bundle, parse_model_json
 from .storage import append_audit, load_state, save_state, write_json
@@ -25,6 +25,7 @@ def generate_bundle(
     difficulty: str = "hard",
     use_mock: bool = False,
     model_timeout: float = 90.0,
+    on_model_delta: Any | None = None,
 ) -> dict[str, Any]:
     topic = topic.strip()
     if not topic:
@@ -44,7 +45,22 @@ def generate_bundle(
         selected_model = selected_model or (config.models[0] if config.models else "")
         if not selected_model.strip():
             raise ValueError("model is not configured")
-        result = real_completion(config, selected_model, prompt, timeout=model_timeout)
+        if on_model_delta is not None:
+            try:
+                result = streaming_completion(
+                    config,
+                    selected_model,
+                    prompt,
+                    timeout=model_timeout,
+                    on_delta=on_model_delta,
+                )
+            except ModelAPIError as exc:
+                if not _looks_like_streaming_unsupported(exc):
+                    raise
+                result = real_completion(config, selected_model, prompt, timeout=model_timeout)
+                on_model_delta(result.content)
+        else:
+            result = real_completion(config, selected_model, prompt, timeout=model_timeout)
         request_raw = result.request_raw
         response_raw = result.response_raw
         payload = parse_model_json(result.content)
@@ -71,3 +87,10 @@ def export_bundle(root: Path, bundle_id: str) -> Path:
 def _first_model(state: dict[str, Any]) -> str:
     models = state.get("settings", {}).get("models", [])
     return models[0] if models else ""
+
+
+def _looks_like_streaming_unsupported(exc: ModelAPIError) -> bool:
+    response = exc.response_raw if isinstance(exc.response_raw, dict) else {}
+    status_code = response.get("status_code")
+    error = str(response.get("error", "")).lower()
+    return status_code in {400, 404, 422} and "stream" in error

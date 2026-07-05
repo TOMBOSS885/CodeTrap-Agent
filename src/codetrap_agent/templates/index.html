@@ -58,6 +58,10 @@
           <div>
             <strong data-generation-title>正在生成</strong>
             <p data-generation-message>正在准备请求模型。</p>
+            <div class="model-stream" data-model-stream-wrap hidden>
+              <div class="model-stream-heading">模型实时返回</div>
+              <pre data-model-stream></pre>
+            </div>
             <pre class="generation-detail" data-generation-detail hidden></pre>
             <ul class="generation-log" data-generation-log></ul>
           </div>
@@ -153,15 +157,25 @@
       const statusMessage = document.querySelector("[data-generation-message]");
       const statusDetail = document.querySelector("[data-generation-detail]");
       const statusLog = document.querySelector("[data-generation-log]");
-      if (!form || !button || !statusBox || !statusTitle || !statusMessage || !statusDetail || !statusLog) {
+      const streamWrap = document.querySelector("[data-model-stream-wrap]");
+      const streamBox = document.querySelector("[data-model-stream]");
+      if (
+        !form || !button || !statusBox || !statusTitle || !statusMessage ||
+        !statusDetail || !statusLog || !streamWrap || !streamBox
+      ) {
         return;
       }
 
-      const setStatus = (title, message, state = "running", detail = "", logs = []) => {
+      const setStatus = (title, message, state = "running", detail = "", logs = [], rawText = "") => {
         statusBox.hidden = false;
         statusBox.dataset.state = state;
         statusTitle.textContent = title;
         statusMessage.textContent = message;
+        streamWrap.hidden = !rawText;
+        streamBox.textContent = rawText || "";
+        if (rawText) {
+          streamBox.scrollTop = streamBox.scrollHeight;
+        }
         statusDetail.hidden = !detail;
         statusDetail.textContent = detail || "";
         statusLog.innerHTML = "";
@@ -178,7 +192,14 @@
           const response = await fetch(`/jobs/${jobId}`, { headers: { "Accept": "application/json" } });
           const payload = await response.json();
           if (payload.status === "succeeded") {
-            setStatus("生成完成", payload.message || "正在打开题包。", "ok", "", payload.logs || []);
+            setStatus(
+              "生成完成",
+              payload.message || "正在打开题包。",
+              "ok",
+              "",
+              payload.logs || [],
+              payload.raw_response_text || ""
+            );
             window.location.href = payload.bundle_url;
             return;
           }
@@ -188,13 +209,21 @@
               payload.error || payload.message || "模型不可用或返回格式不正确。",
               "error",
               payload.error_detail || "",
-              payload.logs || []
+              payload.logs || [],
+              payload.raw_response_text || ""
             );
             button.disabled = false;
             button.textContent = "重新生成";
             return;
           }
-          setStatus("正在生成", payload.message || "模型仍在生成，请稍候。", "running", "", payload.logs || []);
+          setStatus(
+            "正在生成",
+            payload.message || "模型仍在生成，请稍候。",
+            "running",
+            "",
+            payload.logs || [],
+            payload.raw_response_text || ""
+          );
         }
       };
 
@@ -213,7 +242,14 @@
           if (!response.ok || payload.status === "failed") {
             throw new Error(payload.error || payload.message || "提交失败");
           }
-          setStatus("正在生成", payload.message || "任务已创建，正在等待模型返回。", "running", "", payload.logs || []);
+          setStatus(
+            "正在生成",
+            payload.message || "任务已创建，正在等待模型返回。",
+            "running",
+            "",
+            payload.logs || [],
+            payload.raw_response_text || ""
+          );
           pollJob(payload.job_id);
         } catch (error) {
           setStatus("提交失败", error.message || "无法连接服务器。", "error");

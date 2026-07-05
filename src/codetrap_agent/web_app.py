@@ -24,6 +24,7 @@ from .config import (
     validate_api_key,
     validate_base_url,
 )
+from .constants import WEB_MODEL_TIMEOUT_SECONDS
 from .generator import export_bundle, generate_bundle
 from .model_client import ModelAPIError
 from .paths import ensure_tree
@@ -171,6 +172,7 @@ def create_app(data_root: Path) -> FastAPI:
             "error": "",
             "error_detail": "",
             "logs": [],
+            "raw_response_text": "",
         }
         with jobs_lock:
             _prune_jobs(jobs)
@@ -290,8 +292,22 @@ def _job_log(
             )
 
 
-def _short_message(text: str) -> str:
-    return text[:500]
+def _append_model_delta(
+    jobs: dict[str, dict[str, Any]],
+    jobs_lock: threading.Lock,
+    job_id: str,
+    delta: str,
+) -> None:
+    if not delta:
+        return
+    with jobs_lock:
+        job = jobs.get(job_id)
+        if job is None:
+            return
+        current = str(job.get("raw_response_text", ""))
+        combined = current + delta
+        job["raw_response_text"] = combined[-50000:]
+        job["updated_at"] = datetime.now(UTC).isoformat()
 
 
 def _ensure_profile_state(root: Path, state: dict[str, Any]) -> bool:
@@ -403,6 +419,10 @@ def _run_generation_job(
             f"使用模型配置：base_url={runtime.base_url} model={selected_model}",
         )
         _set_job(jobs, jobs_lock, job_id, status="running", message="正在请求模型生成题目、样例和参考答案。")
+
+        def on_delta(delta: str) -> None:
+            _append_model_delta(jobs, jobs_lock, job_id, delta)
+
         bundle = generate_bundle(
             root,
             topic=topic,
@@ -410,7 +430,8 @@ def _run_generation_job(
             model=selected_model,
             difficulty=difficulty,
             use_mock=False,
-            model_timeout=45.0,
+            model_timeout=WEB_MODEL_TIMEOUT_SECONDS,
+            on_model_delta=on_delta,
         )
         _set_job(jobs, jobs_lock, job_id, status="running", message="模型已返回，正在校验结构并保存题包。")
         bundle_url = f"/bundle/{bundle['bundle_id']}?{urlencode({'notice': 'generated'})}"

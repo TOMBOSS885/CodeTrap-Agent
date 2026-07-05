@@ -221,6 +221,21 @@ button.danger,
   max-height: 180px;
 }
 
+.model-stream {
+  margin-top: 12px;
+}
+
+.model-stream-heading {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.model-stream pre {
+  margin: 0;
+  max-height: 260px;
+  white-space: pre-wrap;
+}
+
 .generation-log {
   margin: 10px 0 0;
   padding-left: 18px;

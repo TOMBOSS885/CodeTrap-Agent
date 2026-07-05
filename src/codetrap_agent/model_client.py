@@ -29,7 +29,7 @@ class ModelAPIError(RuntimeError):
         self.response_raw = response_raw
 
 
-def build_request_raw(config: RuntimeConfig, model: str, prompt: str) -> dict[str, Any]:
+def build_request_raw(config: RuntimeConfig, model: str, prompt: str, *, stream: bool = False) -> dict[str, Any]:
     return {
         "schema_version": "codetrap-agent.api_request.v1",
         "provider_api": "openai_chat_completions",
@@ -44,7 +44,7 @@ def build_request_raw(config: RuntimeConfig, model: str, prompt: str) -> dict[st
             "messages": [{"role": "user", "content": prompt}],
             "temperature": DEFAULT_MODEL_TEMPERATURE,
             "top_p": DEFAULT_TOP_P,
-            "stream": False,
+            "stream": stream,
         },
     }
 
@@ -85,6 +85,91 @@ def real_completion(config: RuntimeConfig, model: str, prompt: str, timeout: flo
     if choices and isinstance(choices[0], dict):
         content = str((choices[0].get("message") or {}).get("content", ""))
     return ModelResult(request_raw=request_raw, response_raw=payload, content=content)
+
+
+def streaming_completion(
+    config: RuntimeConfig,
+    model: str,
+    prompt: str,
+    timeout: float = 90.0,
+    on_delta: Any | None = None,
+) -> ModelResult:
+    request_raw = build_request_raw(config, model, prompt, stream=True)
+    if not config.base_url:
+        raise ModelAPIError("base_url is not configured", request_raw, {})
+    if not config.api_key:
+        raise ModelAPIError("api_key is not configured", request_raw, {})
+    request = urllib.request.Request(
+        request_raw["url"],
+        data=json.dumps(request_raw["body"], ensure_ascii=False).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {config.api_key}"},
+        method="POST",
+    )
+    chunks: list[dict[str, Any]] = []
+    content_parts: list[str] = []
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            for raw_line in response:
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line or line.startswith(":"):
+                    continue
+                if not line.startswith("data:"):
+                    continue
+                data = line.removeprefix("data:").strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    payload = json.loads(data)
+                except json.JSONDecodeError:
+                    chunks.append({"unparsed": data[:1000]})
+                    continue
+                chunks.append(payload)
+                delta = _delta_from_stream_payload(payload)
+                if delta:
+                    content_parts.append(delta)
+                    if on_delta is not None:
+                        on_delta(delta)
+    except (TimeoutError, socket.timeout) as exc:
+        response_raw = {"error_type": "timeout", "error": f"timeout after {timeout:g}s"}
+        raise ModelAPIError("model request timed out", request_raw, response_raw) from exc
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        response_raw = {
+            "error_type": "http_error",
+            "status_code": exc.code,
+            "error": _redact_secrets(detail, config.api_key)[:1000],
+        }
+        raise ModelAPIError(f"model request failed: HTTP {exc.code}", request_raw, response_raw) from exc
+    except urllib.error.URLError as exc:
+        response_raw = {"error_type": "url_error", "error": _redact_secrets(str(exc.reason), config.api_key)}
+        raise ModelAPIError("model request failed", request_raw, response_raw) from exc
+    content = "".join(content_parts)
+    response_raw = {
+        "schema_version": "codetrap-agent.api_response.v1",
+        "provider_api": "real_openai_chat_completions_stream",
+        "created_at": int(time.time()),
+        "stream_chunk_count": len(chunks),
+        "content": content,
+        "chunks": chunks[-50:],
+    }
+    return ModelResult(request_raw=request_raw, response_raw=response_raw, content=content)
+
+
+def _delta_from_stream_payload(payload: dict[str, Any]) -> str:
+    choices = payload.get("choices") or []
+    if not choices or not isinstance(choices[0], dict):
+        return ""
+    choice = choices[0]
+    delta = choice.get("delta")
+    if isinstance(delta, dict):
+        content = delta.get("content")
+        if content is not None:
+            return str(content)
+    message = choice.get("message")
+    if isinstance(message, dict) and message.get("content") is not None:
+        return str(message.get("content"))
+    text = choice.get("text")
+    return str(text) if text is not None else ""
 
 
 def _redact_secrets(text: str, api_key: str) -> str:
