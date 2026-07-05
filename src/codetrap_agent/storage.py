@@ -75,22 +75,25 @@ def _ensure_test_json_fields(state: dict[str, Any]) -> None:
             for test in problem.get("tests", []):
                 kwargs = test.get("kwargs", {})
                 expected = test.get("expected")
-                test.setdefault("input", {"kwargs": kwargs})
-                test.setdefault("output", {"expected": expected})
-                test.setdefault(
-                    "input_json",
-                    json.dumps({"kwargs": kwargs}, ensure_ascii=False, separators=(",", ":"), sort_keys=True),
+                test["input"] = _unwrap_legacy_io(test.get("input"), "kwargs", kwargs)
+                test["output"] = _unwrap_legacy_io(test.get("output"), "expected", expected)
+                test["input_json"] = json.dumps(
+                    test["input"], ensure_ascii=False, separators=(",", ":"), sort_keys=True
                 )
-                test.setdefault(
-                    "output_json",
-                    json.dumps({"expected": expected}, ensure_ascii=False, separators=(",", ":"), sort_keys=True),
+                test["output_json"] = json.dumps(
+                    test["output"], ensure_ascii=False, separators=(",", ":"), sort_keys=True
                 )
-                test.setdefault(
-                    "case_json",
-                    json.dumps(
-                        {"kwargs": kwargs, "expected": expected},
-                        ensure_ascii=False,
-                        separators=(",", ":"),
-                        sort_keys=True,
-                    ),
+                test["case_json"] = json.dumps(
+                    {"input": test["input"], "output": test["output"]},
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
                 )
+
+
+def _unwrap_legacy_io(value: Any, wrapper_key: str, fallback: Any) -> Any:
+    if isinstance(value, dict) and set(value) == {wrapper_key}:
+        return value[wrapper_key]
+    if value is None:
+        return fallback
+    return value

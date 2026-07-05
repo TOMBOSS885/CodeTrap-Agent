@@ -22,11 +22,11 @@ def test_mock_bundle_normalizes_with_quality() -> None:
     assert len(bundle["problems"][0]["tests"]) == 8
     assert len(bundle["problems"][0]["pitfalls"]) == 5
     test = bundle["problems"][0]["tests"][0]
-    assert test["input"] == {"kwargs": test["kwargs"]}
-    assert test["output"] == {"expected": test["expected"]}
-    assert json.loads(test["input_json"]) == {"kwargs": test["kwargs"]}
-    assert json.loads(test["output_json"]) == {"expected": test["expected"]}
-    assert json.loads(test["case_json"]) == {"kwargs": test["kwargs"], "expected": test["expected"]}
+    assert test["input"] == test["kwargs"]
+    assert test["output"] == test["expected"]
+    assert json.loads(test["input_json"]) == test["kwargs"]
+    assert json.loads(test["output_json"]) == test["expected"]
+    assert json.loads(test["case_json"]) == {"input": test["kwargs"], "output": test["expected"]}
 
 
 def test_generate_bundle_persists_state(tmp_path) -> None:

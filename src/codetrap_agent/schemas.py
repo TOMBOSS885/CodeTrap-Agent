@@ -123,10 +123,10 @@ def _normalize_tests(values: Any, problem_index: int) -> list[dict[str, Any]]:
         if not isinstance(kwargs, dict):
             raise BundleValidationError(f"problem #{problem_index} test {name} kwargs must be an object")
         expected = item.get("expected")
-        input_json = _canonical_json({"kwargs": kwargs}, problem_index, name, "input")
-        output_json = _canonical_json({"expected": expected}, problem_index, name, "output")
+        input_json = _canonical_json(kwargs, problem_index, name, "input")
+        output_json = _canonical_json(expected, problem_index, name, "output")
         case_json = _canonical_json(
-            {"kwargs": kwargs, "expected": expected},
+            {"input": kwargs, "output": expected},
             problem_index,
             name,
             "case",
@@ -135,8 +135,8 @@ def _normalize_tests(values: Any, problem_index: int) -> list[dict[str, Any]]:
             {
                 "name": name,
                 "visibility": visibility,
-                "input": {"kwargs": kwargs},
-                "output": {"expected": expected},
+                "input": kwargs,
+                "output": expected,
                 "kwargs": kwargs,
                 "expected": expected,
                 "input_json": input_json,

@@ -42,10 +42,10 @@ def build_generation_prompt(topic: str, count: int, language: str, difficulty: s
 2. {PROMPT_LIBRARY["trap_strategy"]}
 3. {PROMPT_LIBRARY["answer_contract"]}
    系统会把每个测试规范化保存为标准 JSON：
-   - input_json: {{"kwargs": ...}}
-   - output_json: {{"expected": ...}}
-   - case_json: {{"kwargs": ..., "expected": ...}}
-   同时也会保存 input 对象和 output 对象，便于旧项目直接读取。
+   - input_json: 只保存输入数据本身，不套 kwargs 外壳
+   - output_json: 只保存输出数据本身，不套 expected 外壳
+   - case_json: {{"input": ..., "output": ...}}
+   同时也会保存 input 对象和 output 对象，值同样只保留数据内容。
    因此 kwargs 和 expected 只能使用 JSON 支持的类型：object、array、string、number、boolean、null。
 4. 题面必须明确函数签名、参数含义、返回值、所有边界行为和约束。
 5. 每道题至少 8 个测试，其中 public 至少 3 个，hidden 至少 5 个。
@@ -72,8 +72,8 @@ def build_generation_prompt(topic: str, count: int, language: str, difficulty: s
         {{
           "name": "...",
           "visibility": "public|hidden",
-          "input": "系统会生成，不要手写",
-          "output": "系统会生成，不要手写",
+          "input": "系统会生成，只保留 kwargs 的数据内容",
+          "output": "系统会生成，只保留 expected 的数据内容",
           "kwargs": {{}},
           "expected": null,
           "input_json": "系统会生成，不要手写",
