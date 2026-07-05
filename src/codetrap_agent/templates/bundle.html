@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ bundle.topic }} - CodeTrap-Agent</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <a href="/" class="back">返回</a>
+        <h1>{{ bundle.topic }}</h1>
+        <p>{{ bundle.bundle_id }} · {{ bundle.model }} · score {{ bundle.quality.score }}</p>
+      </div>
+      <a class="button" href="/bundle/{{ bundle.bundle_id }}/export">导出 JSON</a>
+    </header>
+
+    {% for problem in bundle.problems %}
+      <article class="problem">
+        <h2>{{ problem.title }}</h2>
+        <p>{{ problem.statement }}</p>
+        <pre>{{ problem.signature }}</pre>
+        <h3>坑点</h3>
+        <div class="chips">
+          {% for pitfall in problem.pitfalls %}
+            <span>{{ pitfall.dimension }} · {{ pitfall.name }}</span>
+          {% endfor %}
+        </div>
+        <h3>测试</h3>
+        <table>
+          <thead><tr><th>name</th><th>visibility</th><th>purpose</th></tr></thead>
+          <tbody>
+          {% for test in problem.tests %}
+            <tr><td>{{ test.name }}</td><td>{{ test.visibility }}</td><td>{{ test.purpose }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <h3>参考解</h3>
+        <pre>{{ problem.reference_solution }}</pre>
+      </article>
+    {% endfor %}
+  </main>
+</body>
+</html>

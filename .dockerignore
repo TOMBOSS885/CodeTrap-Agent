@@ -1,8 +1,10 @@
 .git
-.pytest_cache
+.codetrap-agent
+.codetrap-agent-smoke
 __pycache__
 *.pyc
-data/uploads/*
-data/reports/*
-data/*.sqlite3
-
+.pytest_cache
+.ruff_cache
+dist
+build
+*.egg-info

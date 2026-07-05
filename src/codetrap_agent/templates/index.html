@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CodeTrap-Agent</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>CodeTrap-Agent</h1>
+        <p>AI 生成题面、参考解、测试用例和坑点，专门补普通题库的盲区。</p>
+      </div>
+      <span class="badge">{{ state.settings.models|length }} models</span>
+    </header>
+
+    {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+    <section class="grid">
+      <form class="panel" method="post" action="/generate">
+        <h2>生成题包</h2>
+        <label>主题<input name="topic" required placeholder="字符串解析 / 图论边界 / JSON Patch"></label>
+        <label>题目数量<input name="count" type="number" min="1" max="10" value="1"></label>
+        <label>模型<input name="model" placeholder="留空使用第一个模型"></label>
+        <label>难度
+          <select name="difficulty">
+            <option value="hard">hard</option>
+            <option value="expert">expert</option>
+            <option value="research">research</option>
+          </select>
+        </label>
+        <label class="check"><input name="mock" type="checkbox"> mock 模式</label>
+        <button type="submit">生成</button>
+      </form>
+
+      <form class="panel" method="post" action="/settings">
+        <h2>模型设置</h2>
+        <label>Base URL<input name="base_url" value="{{ state.settings.base_url }}" placeholder="https://api.example.com/v1"></label>
+        <label>API Key<input name="api_key" type="password" placeholder="sk-..."></label>
+        <label>Models<input name="models" value="{{ state.settings.models|join(',') }}" placeholder="gpt-4.1,o3"></label>
+        <button type="submit">保存设置</button>
+      </form>
+    </section>
+
+    <section class="list">
+      <h2>题包</h2>
+      {% for bundle in bundles %}
+        <a class="bundle" href="/bundle/{{ bundle.bundle_id }}">
+          <strong>{{ bundle.topic }}</strong>
+          <span>{{ bundle.bundle_id }}</span>
+          <span>score {{ bundle.quality.score }}</span>
+        </a>
+      {% else %}
+        <p class="empty">还没有题包。</p>
+      {% endfor %}
+    </section>
+  </main>
+</body>
+</html>

@@ -1,15 +1,10 @@
 services:
   codetrap-agent:
-    build:
-      context: .
-      args:
-        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11-slim}
-    container_name: codetrap-agent
+    build: .
     ports:
-      - "3141:3141"
-    environment:
-      - CODETRAP_SANDBOX=${CODETRAP_SANDBOX:-subprocess}
-      - CODETRAP_DOCKER_IMAGE=${CODETRAP_DOCKER_IMAGE:-python:3.11-slim}
+      - "8000:8000"
     volumes:
-      - ./data:/app/data
-    restart: unless-stopped
+      - codetrap-agent-data:/data
+
+volumes:
+  codetrap-agent-data:

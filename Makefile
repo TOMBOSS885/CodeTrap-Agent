@@ -1,10 +1,16 @@
-.PHONY: test run docker
+.PHONY: install test lint serve mock
+
+install:
+	python -m pip install -e .[dev]
 
 test:
-	python -m pytest -q
+	python -m pytest
 
-run:
-	uvicorn app.main:app --host 0.0.0.0 --port 3141
+lint:
+	python -m ruff check src tests
 
-docker:
-	docker compose up --build -d
+serve:
+	codetrap-agent serve
+
+mock:
+	codetrap-agent generate --topic "字符串解析" --count 1 --mock
