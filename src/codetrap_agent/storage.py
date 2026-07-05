@@ -14,7 +14,14 @@ def default_state() -> dict[str, Any]:
     return {
         "schema_version": "codetrap-agent.state.v1",
         "version": VERSION_TAG,
-        "settings": {"configured": False, "base_url": "", "api_key_set": False, "models": []},
+        "settings": {
+            "configured": False,
+            "base_url": "",
+            "api_key_set": False,
+            "models": [],
+            "profiles": [],
+            "active_profile_id": "",
+        },
         "bundles": [],
         "audit": [],
     }
@@ -43,6 +50,7 @@ def load_state(root: Path) -> dict[str, Any]:
     if isinstance(loaded, dict):
         state.update(loaded)
         state["settings"] = {**default_state()["settings"], **loaded.get("settings", {})}
+    _ensure_test_json_fields(state)
     return state
 
 
@@ -59,3 +67,30 @@ def append_audit(state: dict[str, Any], event: str, detail: str) -> None:
             "detail": detail,
         },
     )
+
+
+def _ensure_test_json_fields(state: dict[str, Any]) -> None:
+    for bundle in state.get("bundles", []):
+        for problem in bundle.get("problems", []):
+            for test in problem.get("tests", []):
+                kwargs = test.get("kwargs", {})
+                expected = test.get("expected")
+                test.setdefault("input", {"kwargs": kwargs})
+                test.setdefault("output", {"expected": expected})
+                test.setdefault(
+                    "input_json",
+                    json.dumps({"kwargs": kwargs}, ensure_ascii=False, separators=(",", ":"), sort_keys=True),
+                )
+                test.setdefault(
+                    "output_json",
+                    json.dumps({"expected": expected}, ensure_ascii=False, separators=(",", ":"), sort_keys=True),
+                )
+                test.setdefault(
+                    "case_json",
+                    json.dumps(
+                        {"kwargs": kwargs, "expected": expected},
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    ),
+                )

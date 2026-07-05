@@ -47,7 +47,7 @@
               <option value="research">research</option>
             </select>
           </label>
-          <label>模型<input name="model" placeholder="留空使用第一个模型"></label>
+          <label>模型<input name="model" placeholder="留空使用当前配置的第一个模型"></label>
         </div>
 
         <div class="actions">
@@ -63,8 +63,10 @@
       </form>
 
       <aside class="panel side" id="settings">
-        <h2>模型设置</h2>
+        <h2>模型配置</h2>
         <form method="post" action="/settings">
+          <input type="hidden" name="profile_id" value="{{ state.settings.active_profile_id }}">
+          <label>配置名称<input name="profile_name" value="{% for profile in state.settings.profiles %}{% if profile.profile_id == state.settings.active_profile_id %}{{ profile.name }}{% endif %}{% endfor %}" placeholder="DeepSeek / OpenAI / 本地模型"></label>
           <label>Base URL<input name="base_url" value="{{ state.settings.base_url }}" placeholder="https://api.example.com/v1"></label>
           <label>
             API Key
@@ -76,8 +78,40 @@
           </label>
           {% if state.settings.api_key_set %}<p class="muted compact">API Key 已保存，出于安全不会在页面回显。</p>{% endif %}
           <label>Models<input name="models" value="{{ state.settings.models|join(',') }}" placeholder="gpt-4.1,o3"></label>
-          <button type="submit">保存设置</button>
+          <label class="check-row"><input type="checkbox" name="save_as_new"> 另存为新配置</label>
+          <button type="submit">保存当前配置</button>
         </form>
+
+        <div class="profile-create-tip">
+          <p class="muted compact">要新增厂商配置，填写新内容并勾选“另存为新配置”。不勾选时会更新当前配置。</p>
+        </div>
+
+        <h3>已保存配置</h3>
+        <div class="profiles">
+          {% for profile in state.settings.profiles %}
+            <div class="profile-item {% if profile.profile_id == state.settings.active_profile_id %}active-profile{% endif %}">
+              <div>
+                <strong>{{ profile.name }}</strong>
+                <p class="muted compact">{{ profile.base_url }}</p>
+                <p class="muted compact">{{ profile.models|join(", ") }}</p>
+              </div>
+              <div class="profile-actions">
+                {% if profile.profile_id != state.settings.active_profile_id %}
+                  <form method="post" action="/profiles/{{ profile.profile_id }}/activate">
+                    <button class="secondary" type="submit">使用</button>
+                  </form>
+                {% else %}
+                  <span class="status-pill">当前</span>
+                {% endif %}
+                <form method="post" action="/profiles/{{ profile.profile_id }}/delete" onsubmit="return confirm('确定删除这个模型配置吗？');">
+                  <button class="danger" type="submit">删除</button>
+                </form>
+              </div>
+            </div>
+          {% else %}
+            <p class="muted compact">还没有保存模型配置。</p>
+          {% endfor %}
+        </div>
       </aside>
     </section>
 

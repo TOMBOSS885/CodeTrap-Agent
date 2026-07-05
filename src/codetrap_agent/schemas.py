@@ -121,12 +121,26 @@ def _normalize_tests(values: Any, problem_index: int) -> list[dict[str, Any]]:
         kwargs = item.get("kwargs", {})
         if not isinstance(kwargs, dict):
             raise BundleValidationError(f"problem #{problem_index} test {name} kwargs must be an object")
+        expected = item.get("expected")
+        input_json = _canonical_json({"kwargs": kwargs}, problem_index, name, "input")
+        output_json = _canonical_json({"expected": expected}, problem_index, name, "output")
+        case_json = _canonical_json(
+            {"kwargs": kwargs, "expected": expected},
+            problem_index,
+            name,
+            "case",
+        )
         tests.append(
             {
                 "name": name,
                 "visibility": visibility,
+                "input": {"kwargs": kwargs},
+                "output": {"expected": expected},
                 "kwargs": kwargs,
-                "expected": item.get("expected"),
+                "expected": expected,
+                "input_json": input_json,
+                "output_json": output_json,
+                "case_json": case_json,
                 "purpose": str(item.get("purpose", "")).strip(),
             }
         )
@@ -135,6 +149,15 @@ def _normalize_tests(values: Any, problem_index: int) -> list[dict[str, Any]]:
     if public < 3 or hidden < 5:
         raise BundleValidationError(f"problem #{problem_index} needs at least 3 public and 5 hidden tests")
     return tests
+
+
+def _canonical_json(value: Any, problem_index: int, test_name: str, field: str) -> str:
+    try:
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    except (TypeError, ValueError) as exc:
+        raise BundleValidationError(
+            f"problem #{problem_index} test {test_name} {field} is not JSON serializable"
+        ) from exc
 
 
 def _normalize_pitfalls(values: Any, tests: list[dict[str, Any]], problem_index: int) -> list[dict[str, Any]]:

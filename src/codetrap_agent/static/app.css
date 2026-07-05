@@ -144,6 +144,11 @@ button.secondary,
   background: #607080;
 }
 
+button.danger,
+.button.danger {
+  background: #b64242;
+}
+
 .actions {
   display: flex;
   gap: 14px;
@@ -246,6 +251,51 @@ button.secondary,
 
 .muted {
   color: #667381;
+}
+
+.compact {
+  margin: 4px 0 10px;
+  font-size: 0.9rem;
+}
+
+.profiles {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-item {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dfe4ea;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.profile-item.active-profile {
+  border-color: #2f80ed;
+  background: #f2f7ff;
+}
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.profile-actions form {
+  margin: 0;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #e8f6ef;
+  color: #11623d;
+  font-weight: 700;
 }
 
 .section-toolbar {

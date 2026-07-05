@@ -41,6 +41,12 @@ def build_generation_prompt(topic: str, count: int, language: str, difficulty: s
 1. {PROMPT_LIBRARY["quality_bar"]}
 2. {PROMPT_LIBRARY["trap_strategy"]}
 3. {PROMPT_LIBRARY["answer_contract"]}
+   系统会把每个测试规范化保存为标准 JSON：
+   - input_json: {{"kwargs": ...}}
+   - output_json: {{"expected": ...}}
+   - case_json: {{"kwargs": ..., "expected": ...}}
+   同时也会保存 input 对象和 output 对象，便于旧项目直接读取。
+   因此 kwargs 和 expected 只能使用 JSON 支持的类型：object、array、string、number、boolean、null。
 4. 题面必须明确函数签名、参数含义、返回值、所有边界行为和约束。
 5. 每道题至少 8 个测试，其中 public 至少 3 个，hidden 至少 5 个。
 6. public tests 是给用户看的样例；hidden tests 是专门卡 AI 常见错误的测试。
@@ -66,8 +72,13 @@ def build_generation_prompt(topic: str, count: int, language: str, difficulty: s
         {{
           "name": "...",
           "visibility": "public|hidden",
+          "input": "系统会生成，不要手写",
+          "output": "系统会生成，不要手写",
           "kwargs": {{}},
           "expected": null,
+          "input_json": "系统会生成，不要手写",
+          "output_json": "系统会生成，不要手写",
+          "case_json": "系统会生成，不要手写",
           "purpose": "..."
         }}
       ],

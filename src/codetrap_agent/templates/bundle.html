@@ -33,14 +33,14 @@
 
         <h3>公开样例与隐藏测试</h3>
         <table>
-          <thead><tr><th>名称</th><th>类型</th><th>输入</th><th>期望输出</th><th>目的</th></tr></thead>
+          <thead><tr><th>名称</th><th>类型</th><th>输入 JSON</th><th>输出 JSON</th><th>目的</th></tr></thead>
           <tbody>
           {% for test in problem.tests %}
             <tr>
               <td>{{ test.name }}</td>
               <td>{{ test.visibility }}</td>
-              <td><code>{{ test.kwargs }}</code></td>
-              <td><code>{{ test.expected }}</code></td>
+              <td><code>{{ test.input_json }}</code></td>
+              <td><code>{{ test.output_json }}</code></td>
               <td>{{ test.purpose }}</td>
             </tr>
           {% endfor %}

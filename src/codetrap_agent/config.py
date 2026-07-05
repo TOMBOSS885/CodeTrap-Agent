@@ -51,8 +51,25 @@ def env_path(root: Path) -> Path:
     return root / ".env"
 
 
+def profile_key_path(root: Path, profile_id: str) -> Path:
+    safe_id = "".join(ch for ch in profile_id if ch.isalnum() or ch in {"_", "-"})
+    return root / "api-keys" / f"{safe_id}.key"
+
+
 def load_runtime_config(root: Path, settings: dict | None = None) -> RuntimeConfig:
     settings = settings or {}
+    active_profile = _active_profile(settings)
+    if active_profile:
+        api_key = ""
+        key_path = profile_key_path(root, str(active_profile.get("profile_id", "")))
+        if key_path.exists():
+            api_key = key_path.read_text(encoding="utf-8").strip()
+        return RuntimeConfig(
+            base_url=str(active_profile.get("base_url", "")),
+            api_key=api_key,
+            api_key_set=bool(api_key),
+            models=list(active_profile.get("models", [])),
+        )
     api_key = ""
     path = env_path(root)
     if path.exists():
@@ -73,8 +90,31 @@ def update_local_api_key(root: Path, api_key: str) -> None:
     env_path(root).write_text(f"API_KEY={api_key.strip()}\n", encoding="utf-8")
 
 
+def update_profile_api_key(root: Path, profile_id: str, api_key: str) -> None:
+    key_path = profile_key_path(root, profile_id)
+    key_path.parent.mkdir(parents=True, exist_ok=True)
+    key_path.write_text(api_key.strip(), encoding="utf-8")
+
+
+def delete_profile_api_key(root: Path, profile_id: str) -> None:
+    key_path = profile_key_path(root, profile_id)
+    if key_path.exists():
+        key_path.unlink()
+
+
 def app_password() -> str:
     return os.environ.get("CODETRAP_PASSWORD", "").strip()
+
+
+def _active_profile(settings: dict) -> dict | None:
+    profiles = settings.get("profiles", [])
+    active_id = settings.get("active_profile_id", "")
+    if not isinstance(profiles, list) or not active_id:
+        return None
+    for profile in profiles:
+        if isinstance(profile, dict) and profile.get("profile_id") == active_id:
+            return profile
+    return None
 
 
 def _private_base_urls_allowed() -> bool:

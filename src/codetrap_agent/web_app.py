@@ -16,9 +16,10 @@ from fastapi.templating import Jinja2Templates
 
 from .config import (
     app_password,
+    delete_profile_api_key,
     load_runtime_config,
     parse_models,
-    update_local_api_key,
+    update_profile_api_key,
     validate_api_key,
     validate_base_url,
 )
@@ -61,32 +62,91 @@ def create_app(data_root: Path) -> FastAPI:
         base_url: str = Form(...),
         api_key: str = Form(""),
         models: str = Form(...),
+        profile_id: str = Form(""),
+        profile_name: str = Form(""),
+        save_as_new: str = Form(""),
     ) -> Any:
         state = load_state(root)
-        runtime = load_runtime_config(root, state.get("settings", {}))
+        _ensure_profile_state(root, state)
+        if save_as_new == "on":
+            profile_id = ""
+        existing_profile = _find_profile(state, profile_id)
         try:
             validate_base_url(base_url)
             if api_key.strip():
                 validate_api_key(api_key)
-            elif not runtime.api_key_set:
+            elif existing_profile is None or not existing_profile.get("api_key_set"):
                 raise ValueError("api_key cannot be empty")
             parsed_models = parse_models(models)
             if not parsed_models:
                 raise ValueError("at least one model is required")
         except ValueError as exc:
             return _redirect_home(error=str(exc))
-        if api_key.strip():
-            update_local_api_key(root, api_key)
-            runtime = load_runtime_config(root, state.get("settings", {}))
-        state["settings"] = {
-            "configured": True,
-            "base_url": base_url.strip(),
-            "api_key_set": runtime.api_key_set,
-            "models": parsed_models,
+        profile_id = profile_id.strip() or uuid.uuid4().hex
+        name = profile_name.strip() or _default_profile_name(base_url, parsed_models)
+        profile = existing_profile or {
+            "profile_id": profile_id,
+            "created_at": datetime.now(UTC).isoformat(),
         }
-        append_audit(state, "settings.saved", ",".join(parsed_models))
+        profile.update(
+            {
+                "profile_id": profile_id,
+                "name": name,
+                "base_url": base_url.strip(),
+                "models": parsed_models,
+                "api_key_set": bool(api_key.strip()) or bool(existing_profile and existing_profile.get("api_key_set")),
+                "updated_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        if api_key.strip():
+            update_profile_api_key(root, profile_id, api_key)
+            profile["api_key_set"] = True
+        profiles = [item for item in state["settings"].get("profiles", []) if item.get("profile_id") != profile_id]
+        profiles.insert(0, profile)
+        state["settings"]["profiles"] = profiles
+        _activate_profile(state, profile)
+        append_audit(state, "settings.profile.saved", name)
         save_state(root, state)
         return _redirect_home(notice="settings saved")
+
+    @app.post("/profiles/{profile_id}/activate")
+    async def activate_profile(profile_id: str) -> Any:
+        state = load_state(root)
+        _ensure_profile_state(root, state)
+        profile = _find_profile(state, profile_id)
+        if not profile:
+            return _redirect_home(error="profile not found")
+        _activate_profile(state, profile)
+        append_audit(state, "settings.profile.activated", str(profile.get("name", "")))
+        save_state(root, state)
+        return _redirect_home(notice="profile activated")
+
+    @app.post("/profiles/{profile_id}/delete")
+    async def delete_profile(profile_id: str) -> Any:
+        state = load_state(root)
+        _ensure_profile_state(root, state)
+        profiles = state["settings"].get("profiles", [])
+        profile = _find_profile(state, profile_id)
+        if not profile:
+            return _redirect_home(error="profile not found")
+        remaining = [item for item in profiles if item.get("profile_id") != profile_id]
+        delete_profile_api_key(root, profile_id)
+        state["settings"]["profiles"] = remaining
+        if remaining:
+            _activate_profile(state, remaining[0])
+        else:
+            state["settings"].update(
+                {
+                    "configured": False,
+                    "base_url": "",
+                    "api_key_set": False,
+                    "models": [],
+                    "active_profile_id": "",
+                }
+            )
+        append_audit(state, "settings.profile.deleted", str(profile.get("name", "")))
+        save_state(root, state)
+        return _redirect_home(notice="profile deleted")
 
     @app.post("/generate")
     async def generate(
@@ -159,6 +219,8 @@ def create_app(data_root: Path) -> FastAPI:
 
 def _context(request: Request, root: Path) -> dict[str, Any]:
     state = load_state(root)
+    if _ensure_profile_state(root, state):
+        save_state(root, state)
     return {
         "request": request,
         "state": state,
@@ -179,6 +241,59 @@ def _redirect_home(**query: str) -> RedirectResponse:
 def _short_error(exc: Exception) -> str:
     text = str(exc).replace("\n", " ").strip()
     return text[:240] or "request failed"
+
+
+def _ensure_profile_state(root: Path, state: dict[str, Any]) -> bool:
+    settings = state.setdefault("settings", {})
+    settings.setdefault("profiles", [])
+    settings.setdefault("active_profile_id", "")
+    if settings["profiles"]:
+        active = _find_profile(state, str(settings.get("active_profile_id", ""))) or settings["profiles"][0]
+        _activate_profile(state, active)
+        return False
+    if not settings.get("base_url") and not settings.get("models"):
+        return False
+    legacy_runtime = load_runtime_config(root, {"base_url": settings.get("base_url", ""), "models": settings.get("models", [])})
+    profile_id = "legacy_default"
+    profile = {
+        "profile_id": profile_id,
+        "name": "默认配置",
+        "base_url": str(settings.get("base_url", "")),
+        "models": list(settings.get("models", [])),
+        "api_key_set": legacy_runtime.api_key_set,
+        "created_at": datetime.now(UTC).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
+    }
+    if legacy_runtime.api_key:
+        update_profile_api_key(root, profile_id, legacy_runtime.api_key)
+    settings["profiles"] = [profile]
+    _activate_profile(state, profile)
+    return True
+
+
+def _find_profile(state: dict[str, Any], profile_id: str) -> dict[str, Any] | None:
+    for profile in state.get("settings", {}).get("profiles", []):
+        if profile.get("profile_id") == profile_id:
+            return profile
+    return None
+
+
+def _activate_profile(state: dict[str, Any], profile: dict[str, Any]) -> None:
+    state["settings"].update(
+        {
+            "configured": True,
+            "active_profile_id": profile.get("profile_id", ""),
+            "base_url": profile.get("base_url", ""),
+            "api_key_set": bool(profile.get("api_key_set")),
+            "models": list(profile.get("models", [])),
+        }
+    )
+
+
+def _default_profile_name(base_url: str, models: list[str]) -> str:
+    host = base_url.split("//", 1)[-1].split("/", 1)[0] or "模型配置"
+    first_model = models[0] if models else "model"
+    return f"{host} · {first_model}"
 
 
 def _wants_json(request: Request) -> bool:
