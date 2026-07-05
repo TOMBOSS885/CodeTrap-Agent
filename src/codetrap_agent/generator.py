@@ -42,6 +42,8 @@ def generate_bundle(
     else:
         config = load_runtime_config(root, state.get("settings", {}))
         selected_model = selected_model or (config.models[0] if config.models else "")
+        if not selected_model.strip():
+            raise ValueError("model is not configured")
         result = real_completion(config, selected_model, prompt, timeout=model_timeout)
         request_raw = result.request_raw
         response_raw = result.response_raw

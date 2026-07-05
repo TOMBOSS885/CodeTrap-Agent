@@ -24,7 +24,8 @@ def parse_model_json(content: str) -> dict[str, Any]:
     try:
         return json.loads(text)
     except json.JSONDecodeError as exc:
-        raise BundleValidationError(f"model did not return valid JSON: {exc}") from exc
+        preview = text[:500].replace("\n", "\\n")
+        raise BundleValidationError(f"model did not return valid JSON: {exc}; response preview: {preview}") from exc
 
 
 def normalize_bundle(payload: dict[str, Any], *, model: str, topic: str) -> dict[str, Any]:

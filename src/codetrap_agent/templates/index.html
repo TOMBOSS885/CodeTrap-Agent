@@ -58,6 +58,8 @@
           <div>
             <strong data-generation-title>正在生成</strong>
             <p data-generation-message>正在准备请求模型。</p>
+            <pre class="generation-detail" data-generation-detail hidden></pre>
+            <ul class="generation-log" data-generation-log></ul>
           </div>
         </div>
       </form>
@@ -149,15 +151,25 @@
       const statusBox = document.querySelector("[data-generation-status]");
       const statusTitle = document.querySelector("[data-generation-title]");
       const statusMessage = document.querySelector("[data-generation-message]");
-      if (!form || !button || !statusBox || !statusTitle || !statusMessage) {
+      const statusDetail = document.querySelector("[data-generation-detail]");
+      const statusLog = document.querySelector("[data-generation-log]");
+      if (!form || !button || !statusBox || !statusTitle || !statusMessage || !statusDetail || !statusLog) {
         return;
       }
 
-      const setStatus = (title, message, state = "running") => {
+      const setStatus = (title, message, state = "running", detail = "", logs = []) => {
         statusBox.hidden = false;
         statusBox.dataset.state = state;
         statusTitle.textContent = title;
         statusMessage.textContent = message;
+        statusDetail.hidden = !detail;
+        statusDetail.textContent = detail || "";
+        statusLog.innerHTML = "";
+        for (const item of logs.slice(-8)) {
+          const li = document.createElement("li");
+          li.textContent = `${item.at || ""} ${item.message || item}`;
+          statusLog.appendChild(li);
+        }
       };
 
       const pollJob = async (jobId) => {
@@ -166,17 +178,23 @@
           const response = await fetch(`/jobs/${jobId}`, { headers: { "Accept": "application/json" } });
           const payload = await response.json();
           if (payload.status === "succeeded") {
-            setStatus("生成完成", payload.message || "正在打开题包。", "ok");
+            setStatus("生成完成", payload.message || "正在打开题包。", "ok", "", payload.logs || []);
             window.location.href = payload.bundle_url;
             return;
           }
           if (payload.status === "failed") {
-            setStatus("生成失败", payload.error || payload.message || "模型不可用或返回格式不正确。", "error");
+            setStatus(
+              "生成失败",
+              payload.error || payload.message || "模型不可用或返回格式不正确。",
+              "error",
+              payload.error_detail || "",
+              payload.logs || []
+            );
             button.disabled = false;
             button.textContent = "重新生成";
             return;
           }
-          setStatus("正在生成", payload.message || "模型仍在生成，请稍候。", "running");
+          setStatus("正在生成", payload.message || "模型仍在生成，请稍候。", "running", "", payload.logs || []);
         }
       };
 
@@ -195,7 +213,7 @@
           if (!response.ok || payload.status === "failed") {
             throw new Error(payload.error || payload.message || "提交失败");
           }
-          setStatus("正在生成", payload.message || "任务已创建，正在等待模型返回。", "running");
+          setStatus("正在生成", payload.message || "任务已创建，正在等待模型返回。", "running", "", payload.logs || []);
           pollJob(payload.job_id);
         } catch (error) {
           setStatus("提交失败", error.message || "无法连接服务器。", "error");

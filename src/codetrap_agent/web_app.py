@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import uuid
 from datetime import UTC, datetime
@@ -24,7 +25,9 @@ from .config import (
     validate_base_url,
 )
 from .generator import export_bundle, generate_bundle
+from .model_client import ModelAPIError
 from .paths import ensure_tree
+from .schemas import BundleValidationError
 from .storage import append_audit, load_state, save_state
 
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -33,6 +36,7 @@ templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 
 def create_app(data_root: Path) -> FastAPI:
     root = ensure_tree(data_root)
+    logger = _app_logger(root)
     app = FastAPI(title="CodeTrap-Agent")
     jobs: dict[str, dict[str, Any]] = {}
     jobs_lock = threading.Lock()
@@ -165,13 +169,15 @@ def create_app(data_root: Path) -> FastAPI:
             "bundle_id": "",
             "bundle_url": "",
             "error": "",
+            "error_detail": "",
+            "logs": [],
         }
         with jobs_lock:
             _prune_jobs(jobs)
             jobs[job_id] = job
         thread = threading.Thread(
             target=_run_generation_job,
-            args=(jobs, jobs_lock, job_id, root, topic, count, model, difficulty),
+            args=(jobs, jobs_lock, job_id, root, topic, count, model, difficulty, logger),
             daemon=True,
         )
         thread.start()
@@ -238,9 +244,54 @@ def _redirect_home(**query: str) -> RedirectResponse:
     return _redirect(f"/?{urlencode(query)}")
 
 
-def _short_error(exc: Exception) -> str:
+def _short_error(exc: Exception, limit: int = 240) -> str:
     text = str(exc).replace("\n", " ").strip()
-    return text[:240] or "request failed"
+    if isinstance(exc, ModelAPIError):
+        provider_error = exc.response_raw.get("error", "") if isinstance(exc.response_raw, dict) else ""
+        status_code = exc.response_raw.get("status_code", "") if isinstance(exc.response_raw, dict) else ""
+        error_type = exc.response_raw.get("error_type", "") if isinstance(exc.response_raw, dict) else ""
+        details = " ".join(str(item) for item in [error_type, status_code, provider_error] if item)
+        if details:
+            text = f"{text}; provider detail: {details}"
+    if isinstance(exc, BundleValidationError):
+        text = f"model response validation failed: {text}"
+    return text[:limit] or "request failed"
+
+
+def _error_detail(exc: Exception) -> str:
+    return _short_error(exc, limit=2000)
+
+
+def _app_logger(root: Path) -> logging.Logger:
+    logger = logging.getLogger(f"codetrap_agent.{root}")
+    logger.setLevel(logging.INFO)
+    logger.propagate = True
+    if logger.handlers:
+        return logger
+    log_dir = root / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(log_dir / "codetrap-agent.log", encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logger.addHandler(handler)
+    return logger
+
+
+def _job_log(
+    jobs: dict[str, dict[str, Any]],
+    jobs_lock: threading.Lock,
+    job_id: str,
+    message: str,
+) -> None:
+    with jobs_lock:
+        job = jobs.get(job_id)
+        if job is not None:
+            job.setdefault("logs", []).append(
+                {"at": datetime.now(UTC).isoformat(), "message": message}
+            )
+
+
+def _short_message(text: str) -> str:
+    return text[:500]
 
 
 def _ensure_profile_state(root: Path, state: dict[str, Any]) -> bool:
@@ -308,6 +359,10 @@ def _set_job(jobs: dict[str, dict[str, Any]], jobs_lock: threading.Lock, job_id:
         job = jobs.get(job_id)
         if job is not None:
             job.update(values)
+            if "message" in values:
+                job.setdefault("logs", []).append(
+                    {"at": datetime.now(UTC).isoformat(), "message": str(values["message"])}
+                )
             job["updated_at"] = datetime.now(UTC).isoformat()
 
 
@@ -320,20 +375,46 @@ def _run_generation_job(
     count: int,
     model: str,
     difficulty: str,
+    logger: logging.Logger,
 ) -> None:
     try:
+        state = load_state(root)
+        runtime = load_runtime_config(root, state.get("settings", {}))
+        selected_model = model.strip() or (runtime.models[0] if runtime.models else "")
+        logger.info(
+            "generation job started job_id=%s model=%s base_url=%s prompt_chars=%s count=%s difficulty=%s",
+            job_id,
+            selected_model or "[missing]",
+            runtime.base_url or "[missing]",
+            len(topic),
+            count,
+            difficulty,
+        )
+        if not runtime.base_url:
+            raise ValueError("base_url is not configured")
+        if not runtime.api_key_set:
+            raise ValueError("api_key is not configured")
+        if not selected_model:
+            raise ValueError("model is not configured")
+        _job_log(
+            jobs,
+            jobs_lock,
+            job_id,
+            f"使用模型配置：base_url={runtime.base_url} model={selected_model}",
+        )
         _set_job(jobs, jobs_lock, job_id, status="running", message="正在请求模型生成题目、样例和参考答案。")
         bundle = generate_bundle(
             root,
             topic=topic,
             count=max(1, min(int(count), 10)),
-            model=model,
+            model=selected_model,
             difficulty=difficulty,
             use_mock=False,
             model_timeout=45.0,
         )
         _set_job(jobs, jobs_lock, job_id, status="running", message="模型已返回，正在校验结构并保存题包。")
         bundle_url = f"/bundle/{bundle['bundle_id']}?{urlencode({'notice': 'generated'})}"
+        logger.info("generation job succeeded job_id=%s bundle_id=%s", job_id, bundle["bundle_id"])
         _set_job(
             jobs,
             jobs_lock,
@@ -344,6 +425,8 @@ def _run_generation_job(
             bundle_url=bundle_url,
         )
     except Exception as exc:
+        logger.exception("generation job failed job_id=%s error=%s", job_id, _short_error(exc, limit=1000))
+        _job_log(jobs, jobs_lock, job_id, "失败详情已写入 logs/codetrap-agent.log。")
         _set_job(
             jobs,
             jobs_lock,
@@ -351,6 +434,7 @@ def _run_generation_job(
             status="failed",
             message="生成失败。请检查模型设置、API Key、模型名，或稍后重试。",
             error=_short_error(exc),
+            error_detail=_error_detail(exc),
         )
 
 
