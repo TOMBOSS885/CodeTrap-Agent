@@ -6,12 +6,20 @@ from codetrap.core.testcase import TestCase
 
 class IntervalMergeFamily(BaseProblemFamily):
     family_id = "interval_merge"
-    title = "Half-open interval merge and coverage"
-    description = "Merge half-open intervals [start, end), compute covered length, and test target coverage."
-    input_format = '{"intervals": [[start, end], ...], "target": [start, end]}'
-    output_format = '{"merged": [[start, end], ...], "covered_length": int, "target_covered": bool}'
+    title = "半开区间合并与覆盖判断"
+    description = "给定若干半开区间 [start, end)，合并重叠或连续覆盖的区间，计算总覆盖长度，并判断目标区间是否被完全覆盖。"
+    input_format = '{"intervals": [[起点, 终点], ...], "target": [目标起点, 目标终点]}'
+    output_format = '{"merged": 合并后区间, "covered_length": 覆盖长度, "target_covered": 是否覆盖目标}'
     difficulty = "medium"
     tags = ["interval", "sorting", "coverage"]
+
+    def trap_notes(self) -> list[str]:
+        return [
+            "本题使用半开区间 [start, end)，空区间应忽略。",
+            "输入可能乱序、重复，必须先排序再合并。",
+            "相邻半开区间可以形成连续覆盖。",
+            "负数边界和大整数边界不能特殊漏掉。",
+        ]
 
     def reference_solve(self, input_data: dict) -> dict:
         intervals = input_data.get("intervals", [])
@@ -55,4 +63,3 @@ class IntervalMergeFamily(BaseProblemFamily):
             MutantSolution("closed_length", "Closed interval length", "Uses b-a+1 length.", "def solve(input_data):\n    return {'merged':input_data['intervals'],'covered_length':sum(b-a+1 for a,b in input_data['intervals'] if a<=b),'target_covered':False}\n"),
             MutantSolution("keeps_empty", "Keeps empty intervals", "Does not drop empty intervals.", "def solve(input_data):\n    return {'merged':sorted(input_data['intervals']),'covered_length':sum(b-a for a,b in input_data['intervals']),'target_covered':False}\n"),
         ]
-

@@ -30,3 +30,15 @@ def test_family_detail_api_includes_mutants():
     data = response.json()
     assert data["family_id"] == "graph_paths"
     assert len(data["mutants"]) >= 3
+
+
+def test_problem_bundle_api_without_online_search():
+    client = TestClient(app)
+    response = client.post("/api/families/graph_paths/problem", json={"level": "edge", "count": 2, "search_online": False})
+    assert response.status_code == 200
+    data = response.json()["problem"]
+    assert data["statement"].startswith("# ")
+    assert len(data["cases"]) == 2
+    assert data["cases"][0]["expected_output"] is not None
+    assert "def solve(input_data)" in data["reference_answer"]
+    assert data["search_status"] == "online_search_disabled"

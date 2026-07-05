@@ -5,6 +5,8 @@ CodeTrap-Agent is a Python + FastAPI system for adversarial programming problem 
 ## Features
 
 - Five extensible problem families: graph path counting, JSON Patch, interval merge, expression parser, and DP counting.
+- Online search for related algorithm problems and AI-failure-prone edge cases, with offline fallback.
+- Full problem bundle generation: original statement, test data, expected outputs, reference answer, and search sources.
 - `reference_solve`, `generate_cases`, and `generate_mutants` for every family.
 - Case levels: `basic`, `edge`, and `adversarial`.
 - Candidate Python solutions use a unified `solve(input_data)` entry point.
@@ -85,6 +87,7 @@ The Docker backend runs each case with `--network none`, a read-only filesystem,
 - `GET /api/families`
 - `GET /api/families/{family_id}`
 - `POST /api/families/{family_id}/cases`
+- `POST /api/families/{family_id}/problem`
 - `POST /api/judge/{family_id}`
 - `GET /api/reports/{report_id}`
 - `GET /api/reports/{report_id}/download`
@@ -95,6 +98,14 @@ Generate cases:
 curl -X POST http://localhost:3141/api/families/graph_paths/cases ^
   -H "Content-Type: application/json" ^
   -d "{\"level\":\"edge\",\"count\":5}"
+```
+
+Generate a full problem bundle:
+
+```bash
+curl -X POST http://localhost:3141/api/families/graph_paths/problem ^
+  -H "Content-Type: application/json" ^
+  -d "{\"level\":\"adversarial\",\"count\":5,\"search_online\":true}"
 ```
 
 Judge a solution:

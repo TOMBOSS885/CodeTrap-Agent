@@ -78,12 +78,20 @@ class Parser:
 
 class StringParserFamily(BaseProblemFamily):
     family_id = "string_parser"
-    title = "Integer expression parser"
-    description = "Evaluate integer expressions with +, -, *, /, parentheses, spaces, and unary signs. Division truncates toward zero."
-    input_format = '{"expr": str}'
-    output_format = '{"ok": true, "value": int} or {"ok": false, "error": str}'
+    title = "整数表达式解析器"
+    description = "实现一个整数表达式解析器，支持加减乘除、括号、空格和一元正负号。整数除法向 0 截断，非法表达式返回错误。"
+    input_format = '{"expr": 表达式字符串}'
+    output_format = '{"ok": true, "value": 计算结果} 或 {"ok": false, "error": 错误信息}'
     difficulty = "medium"
     tags = ["parser", "expression", "precedence"]
+
+    def trap_notes(self) -> list[str]:
+        return [
+            "需要区分一元负号和二元减号。",
+            "乘除优先级高于加减，括号可以嵌套。",
+            "整数除法向 0 截断，除 0 要返回错误。",
+            "非法表达式、缺失括号和整数溢出都要返回结构化错误。",
+        ]
 
     def reference_solve(self, input_data: dict) -> dict:
         try:
@@ -110,4 +118,3 @@ class StringParserFamily(BaseProblemFamily):
             MutantSolution("no_parens", "No parentheses", "Strips parentheses instead of parsing them.", "def solve(input_data):\n    return {'ok': True, 'value': eval(input_data['expr'].replace('(','').replace(')',''))}\n"),
             MutantSolution("left_to_right", "Left-to-right precedence", "Evaluates without operator precedence.", "def solve(input_data):\n    toks=input_data['expr'].split(); val=int(toks[0]); i=1\n    while i<len(toks):\n        op=toks[i]; rhs=int(toks[i+1]); val = val+rhs if op=='+' else val-rhs if op=='-' else val*rhs if op=='*' else int(val/rhs); i+=2\n    return {'ok': True, 'value': val}\n"),
         ]
-

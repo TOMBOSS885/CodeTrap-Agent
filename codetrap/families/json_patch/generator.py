@@ -111,12 +111,20 @@ def remove_value(doc: object, path: str):
 
 class JsonPatchFamily(BaseProblemFamily):
     family_id = "json_patch"
-    title = "Simplified JSON Patch"
-    description = "Apply add/remove/replace/move/copy/test operations using JSON Pointer."
-    input_format = '{"document": object, "patch": [{"op": str, "path": str, ...}]}'
-    output_format = '{"ok": bool, "document": object} or {"ok": false, "error": str}'
+    title = "简化版 JSON Patch"
+    description = "实现简化版 JSON Patch，支持 add、remove、replace、move、copy、test 操作，路径遵循 JSON Pointer 规则。"
+    input_format = '{"document": 原始 JSON 文档, "patch": [{"op": 操作名, "path": 路径, ...}]}'
+    output_format = '{"ok": true, "document": 修改后文档} 或 {"ok": false, "error": 错误信息}'
     difficulty = "hard"
     tags = ["json", "patch", "pointer"]
+
+    def trap_notes(self) -> list[str]:
+        return [
+            "JSON Pointer 中 ~0 表示 ~，~1 表示 /，非法转义必须报错。",
+            "数组 add、remove、replace 的下标边界不同，'-' 只能用于 add 到数组末尾。",
+            "move 不能把父节点移动到自己的子节点。",
+            "任一操作失败时整个 patch 失败，不能暴露部分修改后的文档。",
+        ]
 
     def reference_solve(self, input_data: dict) -> dict:
         original = input_data.get("document")
@@ -168,4 +176,3 @@ class JsonPatchFamily(BaseProblemFamily):
             MutantSolution("bad_array_append", "Bad array append", "Rejects '-' for array append.", "def solve(input_data):\n    if any(op.get('path','').endswith('/-') for op in input_data.get('patch',[])): return {'ok':False,'error':'bad index'}\n    return {'ok':True,'document':input_data.get('document')}\n"),
             MutantSolution("partial_modify", "Partial modification", "Mutates before returning error.", "def solve(input_data):\n    doc=input_data.get('document')\n    if isinstance(doc,dict): doc['partial']=True\n    return {'ok':False,'error':'failed'}\n"),
         ]
-

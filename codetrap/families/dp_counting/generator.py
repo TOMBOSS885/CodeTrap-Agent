@@ -8,12 +8,20 @@ MOD = 1_000_000_007
 
 class DPCountingFamily(BaseProblemFamily):
     family_id = "dp_counting"
-    title = "Constrained stair counting"
-    description = "Count ways to reach step n using jumps in allowed_steps, avoiding broken steps."
-    input_format = '{"n": int, "allowed_steps": [int], "broken": [int]}'
-    output_format = "integer count modulo 1000000007"
+    title = "带约束的爬楼梯计数"
+    description = "给定目标台阶 n、允许的步长集合和损坏台阶列表，计算到达第 n 阶的方案数，结果对 1000000007 取模。"
+    input_format = '{"n": 目标台阶, "allowed_steps": 允许步长数组, "broken": 损坏台阶数组}'
+    output_format = "整数：方案数对 1000000007 取模"
     difficulty = "medium"
     tags = ["dp", "counting", "modulo"]
+
+    def trap_notes(self) -> list[str]:
+        return [
+            "dp[0] 是初始状态，目标为 0 时应计为空方案。",
+            "broken 中的台阶不能落脚，起点损坏会导致所有路径为 0。",
+            "allowed_steps 中的重复步长不应重复贡献。",
+            "大规模输入需要迭代 DP 并在每步取模。",
+        ]
 
     def reference_solve(self, input_data: dict) -> int:
         n = input_data.get("n")
@@ -48,4 +56,3 @@ class DPCountingFamily(BaseProblemFamily):
             MutantSolution("ignores_broken", "Ignores broken steps", "Counts paths through forbidden steps.", "def solve(input_data):\n    n=input_data['n']; steps=input_data.get('allowed_steps',[1,2]); dp=[0]*(n+1); dp[0]=1\n    for i in range(1,n+1): dp[i]=sum(dp[i-s] for s in steps if i-s>=0)%1000000007\n    return dp[n]\n"),
             MutantSolution("recursive_exponential", "Recursive timeout risk", "Uses naive recursion.", "def solve(input_data):\n    n=input_data['n']; steps=input_data.get('allowed_steps',[1,2])\n    def f(x):\n        if x==0: return 1\n        if x<0: return 0\n        return sum(f(x-s) for s in steps)\n    return f(n)\n"),
         ]
-

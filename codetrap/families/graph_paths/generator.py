@@ -10,12 +10,20 @@ MOD = 1_000_000_007
 
 class GraphPathsFamily(BaseProblemFamily):
     family_id = "graph_paths"
-    title = "Directed graph path counting"
-    description = "Count paths from 0 to n-1 in a directed graph. Return -1 for invalid edges or infinite paths."
-    input_format = '{"n": int, "edges": [[u, v], ...]}'
-    output_format = "integer path count modulo 1000000007, or -1"
+    title = "有向图路径计数"
+    description = "给定一个有向图，计算从节点 0 到节点 n-1 的不同路径数量。如果存在无限多条有效路径，返回 -1；否则返回路径数对 1000000007 取模。非法边也返回 -1。"
+    input_format = '{"n": 节点数量, "edges": [[起点, 终点], ...]}'
+    output_format = "整数：路径数量对 1000000007 取模，或 -1"
     difficulty = "medium"
     tags = ["graph", "dp", "cycle-detection"]
+
+    def trap_notes(self) -> list[str]:
+        return [
+            "不是所有环都会导致无限路径，只有从起点可达且能到终点的环才会导致 -1。",
+            "重复边表示不同选择，必须重复计数。",
+            "n == 1 时空路径计为 1，但存在自环时应返回 -1。",
+            "终点不可达时返回 0，非法边返回 -1。",
+        ]
 
     def reference_solve(self, input_data: dict) -> int:
         n = input_data.get("n")
@@ -108,4 +116,3 @@ class GraphPathsFamily(BaseProblemFamily):
             MutantSolution("dedupe_edges", "Deduplicates edges", "Treats parallel edges as one edge.", "def solve(input_data):\n    n=input_data['n']; edges=list(set(map(tuple,input_data.get('edges',[]))))\n    dp=[0]*n; dp[0]=1\n    for _ in range(n):\n        ndp=dp[:]\n        for u,v in edges: ndp[v]=(ndp[v]+dp[u])%1000000007\n        dp=ndp\n    return dp[n-1]\n"),
             MutantSolution("self_node_zero", "Misses empty path", "Returns 0 for n == 1 without self loop.", "def solve(input_data):\n    if input_data.get('n')==1: return 0\n    return 0\n"),
         ]
-

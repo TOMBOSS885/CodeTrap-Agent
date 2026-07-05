@@ -10,6 +10,15 @@ def test_all_families_generate_expected_outputs():
                 assert case.expected_output == family.reference_solve(case.input_data)
 
 
+def test_all_families_generate_problem_bundle():
+    for family in registry.all():
+        bundle = family.generate_problem_bundle("edge", 2, [], "unit test query", "online_search_disabled")
+        assert bundle.statement.startswith("# ")
+        assert len(bundle.cases) == 2
+        assert bundle.reference_answer.startswith("from ")
+        assert all(case.expected_output is not None for case in bundle.cases)
+
+
 def test_graph_reference_edge_cases():
     graph = registry.get("graph_paths")
     assert graph.reference_solve({"n": 1, "edges": []}) == 1
@@ -28,4 +37,3 @@ def test_interval_parser_dp_references():
     assert registry.get("interval_merge").reference_solve({"intervals": [[2, 4], [1, 2]], "target": [1, 4]})["covered_length"] == 3
     assert registry.get("string_parser").reference_solve({"expr": "-7 / 2"}) == {"ok": True, "value": -3}
     assert registry.get("dp_counting").reference_solve({"n": 5, "allowed_steps": [1, 2], "broken": []}) == 8
-
