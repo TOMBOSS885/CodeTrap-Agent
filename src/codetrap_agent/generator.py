@@ -24,6 +24,7 @@ def generate_bundle(
     language: str = "Python",
     difficulty: str = "hard",
     use_mock: bool = False,
+    model_timeout: float = 90.0,
 ) -> dict[str, Any]:
     topic = topic.strip()
     if not topic:
@@ -41,7 +42,7 @@ def generate_bundle(
     else:
         config = load_runtime_config(root, state.get("settings", {}))
         selected_model = selected_model or (config.models[0] if config.models else "")
-        result = real_completion(config, selected_model, prompt)
+        result = real_completion(config, selected_model, prompt, timeout=model_timeout)
         request_raw = result.request_raw
         response_raw = result.response_raw
         payload = parse_model_json(result.content)

@@ -27,7 +27,7 @@
     </section>
 
     <section class="workspace">
-      <form class="panel generator" method="post" action="/generate">
+      <form class="panel generator" method="post" action="/generate" data-generate-form>
         <label>
           出题提示词
           <textarea
@@ -51,7 +51,14 @@
         </div>
 
         <div class="actions">
-          <button type="submit">生成题目、样例和答案</button>
+          <button type="submit" data-generate-button>生成题目、样例和答案</button>
+        </div>
+        <div class="generation-status" data-generation-status hidden>
+          <div class="status-spinner" aria-hidden="true"></div>
+          <div>
+            <strong data-generation-title>正在生成</strong>
+            <p data-generation-message>正在准备请求模型。</p>
+          </div>
         </div>
       </form>
 
@@ -59,7 +66,15 @@
         <h2>模型设置</h2>
         <form method="post" action="/settings">
           <label>Base URL<input name="base_url" value="{{ state.settings.base_url }}" placeholder="https://api.example.com/v1"></label>
-          <label>API Key<input name="api_key" type="password" placeholder="sk-..."></label>
+          <label>
+            API Key
+            <input
+              name="api_key"
+              type="password"
+              placeholder="{% if state.settings.api_key_set %}已保存，留空表示不修改{% else %}sk-...{% endif %}"
+            >
+          </label>
+          {% if state.settings.api_key_set %}<p class="muted compact">API Key 已保存，出于安全不会在页面回显。</p>{% endif %}
           <label>Models<input name="models" value="{{ state.settings.models|join(',') }}" placeholder="gpt-4.1,o3"></label>
           <button type="submit">保存设置</button>
         </form>
@@ -93,5 +108,68 @@
       </table>
     </section>
   </main>
+  <script>
+    (() => {
+      const form = document.querySelector("[data-generate-form]");
+      const button = document.querySelector("[data-generate-button]");
+      const statusBox = document.querySelector("[data-generation-status]");
+      const statusTitle = document.querySelector("[data-generation-title]");
+      const statusMessage = document.querySelector("[data-generation-message]");
+      if (!form || !button || !statusBox || !statusTitle || !statusMessage) {
+        return;
+      }
+
+      const setStatus = (title, message, state = "running") => {
+        statusBox.hidden = false;
+        statusBox.dataset.state = state;
+        statusTitle.textContent = title;
+        statusMessage.textContent = message;
+      };
+
+      const pollJob = async (jobId) => {
+        for (;;) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const response = await fetch(`/jobs/${jobId}`, { headers: { "Accept": "application/json" } });
+          const payload = await response.json();
+          if (payload.status === "succeeded") {
+            setStatus("生成完成", payload.message || "正在打开题包。", "ok");
+            window.location.href = payload.bundle_url;
+            return;
+          }
+          if (payload.status === "failed") {
+            setStatus("生成失败", payload.error || payload.message || "模型不可用或返回格式不正确。", "error");
+            button.disabled = false;
+            button.textContent = "重新生成";
+            return;
+          }
+          setStatus("正在生成", payload.message || "模型仍在生成，请稍候。", "running");
+        }
+      };
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        button.disabled = true;
+        button.textContent = "生成中...";
+        setStatus("正在生成", "正在提交请求。", "running");
+        try {
+          const response = await fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            headers: { "Accept": "application/json", "X-Requested-With": "fetch" },
+          });
+          const payload = await response.json();
+          if (!response.ok || payload.status === "failed") {
+            throw new Error(payload.error || payload.message || "提交失败");
+          }
+          setStatus("正在生成", payload.message || "任务已创建，正在等待模型返回。", "running");
+          pollJob(payload.job_id);
+        } catch (error) {
+          setStatus("提交失败", error.message || "无法连接服务器。", "error");
+          button.disabled = false;
+          button.textContent = "重新生成";
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

@@ -134,6 +134,11 @@ button,
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 button.secondary,
 .button.secondary {
   background: #607080;
@@ -184,6 +189,59 @@ button.secondary,
 .notice.error {
   background: #fff0f0;
   color: #a22828;
+}
+
+.generation-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #cfd7e2;
+  border-radius: 8px;
+  background: #f7faff;
+}
+
+.generation-status[hidden] {
+  display: none;
+}
+
+.generation-status p {
+  margin: 4px 0 0;
+}
+
+.generation-status[data-state="ok"] {
+  border-color: #9bd6b2;
+  background: #e8f6ef;
+  color: #11623d;
+}
+
+.generation-status[data-state="error"] {
+  border-color: #efb5b5;
+  background: #fff0f0;
+  color: #a22828;
+}
+
+.status-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid #cfd7e2;
+  border-top-color: #246bfe;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  flex: 0 0 auto;
+}
+
+.generation-status[data-state="ok"] .status-spinner,
+.generation-status[data-state="error"] .status-spinner {
+  animation: none;
+  border-color: currentColor;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .muted {
